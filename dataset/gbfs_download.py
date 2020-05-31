@@ -13,7 +13,7 @@ import urllib.request
 import zipfile
 
 tmpfolder='tmp/'
-dataset='/home/ubuntu/datasets/'
+dataset='$HOME/datasets/'
 bikeshare={'citibike':'https://s3.amazonaws.com/tripdata/',
         'capital':'https://s3.amazonaws.com/capitalbikeshare-data/',
         'lyft': 'https://s3.amazonaws.com/baywheels-data/',
