@@ -44,4 +44,4 @@ hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
 #df = spark.read.json(s3_url)
 df = spark.read.csv(s3_url)
 
-df.show(5)
+df.show()
