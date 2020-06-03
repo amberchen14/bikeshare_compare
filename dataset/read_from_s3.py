@@ -13,10 +13,10 @@ from pyspark.sql.functions import udf
 spark = SparkSession \
 	.builder \
 	.appName("Ingesting raw json files into Spark DF for processing") \
-	.config('spark.executor.memory', '24g') \
-	.config('spark.executor.cores', '6') \
-	.config('spark.driver.cores','12') \
-	.config('spark.default.parallelism', '100') \
+	.config('spark.executor.memory', '2') \
+	.config('spark.executor.cores', '2') \
+	.config('spark.driver.cores','4') \
+	.config('spark.default.parallelism', '10') \
 	.getOrCreate()
 
 # Create Spark Context
