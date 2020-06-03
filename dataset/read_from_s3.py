@@ -3,7 +3,7 @@
 #!/usr/bin/python3
 
 import json, os, sys, time
-import dateutil.parser as dup
+#import dateutil.parser as dup
 import boto3
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, DateType
@@ -37,7 +37,11 @@ hadoop_conf=sc._jsc.hadoopConfiguration()
 hadoop_conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
 hadoop_conf.set("fs.s3a.awsAccessKeyId", access_id)
 hadoop_conf.set("fs.s3a.awsSecretAccessKey", access_key)
+hadoop_conf.set("spark.hadoop.fs.s3a.endpoint", "s3-us-west-2.amazonaws.com")
+hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
 
 # Now I can bring in my JSON file directly from s3 into Spark DF
-df = spark.read.json(s3_url)
+#df = spark.read.json(s3_url)
+df = spark.read.csv(s3_url)
+
 df.show(5)
