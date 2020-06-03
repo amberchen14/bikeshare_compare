@@ -40,7 +40,13 @@ if __name__ == "__main__":
     spark = SparkSession\
         .builder\
         .appName("PythonWordCount")\
-        .getOrCreate()
+        .config('spark.executor.memory', '2g')\ 
+        .config('spark.driver.memory', '2g')\
+        .config('spark.executor.cores', '4')\
+        .config('spark.driver.cores','4')\
+        .getOrCreate()#.config('spark.default.parallelism', '10') \ #.config('spark.executor.memory', '2g') 
+
+        
 
     lines = spark.read.text(sys.argv[1]).rdd.map(lambda r: r[0])
     counts = lines.flatMap(lambda x: x.split(' ')) \
