@@ -8,7 +8,6 @@ Created on Wed Jun  3 20:39:15 2020
 
 
 #!/usr/bin/python3
-
 import json, os, sys, time
 #import dateutil.parser as dup
 import boto3
@@ -17,6 +16,8 @@ from pyspark.sql.types import StringType, DateType
 from pyspark.sql.functions import udf
 import configparser
 
+
+#os.environ['PYSPARK_SUBMIT_ARGS']='--jars $SPARK_HOME/jars/aws-java-sdk-1.7.4.jar,$SPARK_HOME/jars/hadoop-aws-2.7.7.jar,$SPARK_HOME/jars/jets3t-0.9.4.jar spark-shell'
 config = configparser.ConfigParser()
 aws_profile='default'
 config.read(os.path.expanduser("~/.aws/credentials"))
@@ -32,12 +33,21 @@ spark = SparkSession \
 .appName("Ingesting raw json files into Spark DF for processing") \
 .config('spark.executor.memory', '2g') \
 .config('spark.executor.cores', '2') \
-.config('spark.driver.cores','4') \
+.config('spark.driver.cores','2') \
 .config('spark.default.parallelism', '10') \
 .getOrCreate()
 
 # Create Spark Context
 sc = spark.sparkContext
+
+
+# This sets the config with appropriate security credentials for s3 access
+hadoop_conf=sc._jsc.hadoopConfiguration()
+hadoop_conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
+hadoop_conf.set("fs.s3a.awsAccessKeyId", access_id)
+hadoop_conf.set("fs.s3a.awsSecretAccessKey", access_key)
+hadoop_conf.set("spark.hadoop.fs.s3a.endpoint", "s3."+access_region+".amazonaws.com")
+hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
 
 # This is the S3 URL that I want to read json file(s) directly from
 # Notably, "s3a" is a way to get very large files.
@@ -60,23 +70,10 @@ for f in fnames:
 
 
 
-# This assumes that your access id/key are stored in your environmental variables
-# We are pulling them into our python job here.
-#access_id = os.getenv('AWS_ACCESS_KEY_ID')
-#access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-
-# This sets the config with appropriate security credentials for s3 access
-hadoop_conf=sc._jsc.hadoopConfiguration()
-hadoop_conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
-hadoop_conf.set("fs.s3a.awsAccessKeyId", access_id)
-hadoop_conf.set("fs.s3a.awsSecretAccessKey", access_key)
-hadoop_conf.set("spark.hadoop.fs.s3a.endpoint", "s3."+access_region+".amazonaws.com")
-hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
-
 # Now I can bring in my JSON file directly from s3 into Spark DF
 #df = spark.read.json(s3_url)
 #df = spark.read.load(s3_url, format='csv', header='true')
 df.printSchema()
-
 df.show()
+df.count()
 df.orderBy(df['end station id'].desc()).show()
