@@ -8,12 +8,24 @@ import boto3
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StringType, DateType
 from pyspark.sql.functions import udf
+import configparser
 
+config = configparser.ConfigParser()
+aws_profile='default'
+config.read(os.path.expanduser("~/.aws/credentials"))
+access_id = config.get(aws_profile, "aws_access_key_id")
+access_key = config.get(aws_profile, "aws_secret_access_key")
+config.read(os.path.expanduser("~/.aws/config"))
+access_region = config.get(aws_profile, "region")
+#access_output = config.get(aws_profile, "output")
+
+
+# 
 # Create Spark Session
 spark = SparkSession \
 	.builder \
 	.appName("Ingesting raw json files into Spark DF for processing") \
-	.config('spark.executor.memory', '2') \
+	.config('spark.executor.memory', '2g') \
 	.config('spark.executor.cores', '2') \
 	.config('spark.driver.cores','4') \
 	.config('spark.default.parallelism', '10') \
@@ -29,19 +41,20 @@ s3_url = "s3a://de-club-2020/bluebike/201501-hubway-tripdata.csv"
 
 # This assumes that your access id/key are stored in your environmental variables
 # We are pulling them into our python job here.
-access_id = os.getenv('AWS_ACCESS_KEY_ID')
-access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+#access_id = os.getenv('AWS_ACCESS_KEY_ID')
+#access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
 
 # This sets the config with appropriate security credentials for s3 access
 hadoop_conf=sc._jsc.hadoopConfiguration()
 hadoop_conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
 hadoop_conf.set("fs.s3a.awsAccessKeyId", access_id)
 hadoop_conf.set("fs.s3a.awsSecretAccessKey", access_key)
-hadoop_conf.set("spark.hadoop.fs.s3a.endpoint", "s3-us-west-2.amazonaws.com")
+hadoop_conf.set("spark.hadoop.fs.s3a.endpoint", "s3."+access_region+".amazonaws.com")
 hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
 
 # Now I can bring in my JSON file directly from s3 into Spark DF
 #df = spark.read.json(s3_url)
-df = spark.read.csv(s3_url)
+df = spark.read.load(s3_url, format='csv', header='true')
+df.printSchema()
 
 df.show()
