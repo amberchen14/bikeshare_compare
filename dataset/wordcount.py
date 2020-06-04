@@ -40,13 +40,15 @@ if __name__ == "__main__":
     spark = SparkSession\
         .builder\
         .appName("PythonWordCount")\
-        .config('spark.executor.memory', '3g') \
-        .config('spark.executor.cores', '1')\
-        .config('spark.driver.memory', '6g') \
-        .config('spark.dynamicAllocation.enabled', 'true')\
-        .config('spark.shuffle.service.enabled', 'true')\
-        .config('spark.eventLog.logBlockUpdates.enabled', 'true')\
-        .getOrCreate()#.config('spark.default.parallelism', '10') \ #.config('spark.worker.memory','4g')\.config('spark.worker.cores','2')\
+        .getOrCreate()
+        #.config('spark.executor.memory', '3g') \
+        
+       # .config('spark.executor.cores', '1')\
+        #.config('spark.driver.memory', '6g') \
+        #.config('spark.dynamicAllocation.eabled', 'true')\
+        #.config('spark.shuffle.service.enabled', 'true')\
+        #.config('spark.eventLog.logBlockUpdates.enabled', 'true')\
+        #.getOrCreate()#.config('spark.default.parallelism', '10') \ #.config('spark.worker.memory','4g')\.config('spark.worker.cores','2')\
 
 
         
