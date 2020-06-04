@@ -40,11 +40,14 @@ if __name__ == "__main__":
     spark = SparkSession\
         .builder\
         .appName("PythonWordCount")\
-        .config('spark.executor.memory', '2g')\ 
-        .config('spark.driver.memory', '2g')\
-        .config('spark.executor.cores', '4')\
-        .config('spark.driver.cores','4')\
-        .getOrCreate()#.config('spark.default.parallelism', '10') \ #.config('spark.executor.memory', '2g') 
+        .config('spark.executor.memory', '3g') \
+        .config('spark.executor.cores', '1')\
+        .config('spark.driver.memory', '6g') \
+        .config('spark.dynamicAllocation.enabled', 'true')\
+        .config('spark.shuffle.service.enabled', 'true')\
+        .config('spark.eventLog.logBlockUpdates.enabled', 'true')\
+        .getOrCreate()#.config('spark.default.parallelism', '10') \ #.config('spark.worker.memory','4g')\.config('spark.worker.cores','2')\
+
 
         
 
@@ -53,7 +56,7 @@ if __name__ == "__main__":
                   .map(lambda x: (x, 1)) \
                   .reduceByKey(add)
     output = counts.collect()
-    for (word, count) in output:
-        print("%s: %i" % (word, count))
+   # for (word, count) in output:
+   #     print("%s: %i" % (word, count))
 
-    spark.stop()
+ #`   spark.stop()
