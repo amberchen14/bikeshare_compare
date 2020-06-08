@@ -1,11 +1,8 @@
-
-#Citibike, NYC
 {'company': 'citibike',
             'state': 'NY',
             'city': 'NYC',
             'trip_file':{
                 'keyword': 'trip',
-                'start_time':'starttime',
                 'end_time': 'stoptime',
                 'start_station_id': 'start_station_id',
                 'start_station_name':'start_station_name',
@@ -15,9 +12,8 @@
                 'end_station_name':'end_station_name',
                 'end_station_lon': 'end_station_longitude',
                 'end_station_lat':'end_stataion_latitude',
-            },
             'station_file': None  
-},
+}
 {'company': 'bluebike',
             'state': 'MA',
             'city': 'Boston',
