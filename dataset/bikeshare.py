@@ -66,3 +66,4 @@ bluebike={"company": "bluebike",
 
 bikeshare=json.dumps([bluebike, citibike])
                 
+bikeshare=json.dumps([bluebike])
