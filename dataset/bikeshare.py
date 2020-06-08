@@ -4,16 +4,18 @@ citibike={"company": "citibike",
             "city": "NYC",
             "trip_file":{
                 "keyword": "trip",
+                "start_time": "starttime",
                 "end_time": "stoptime",
                 "start_station_id": "start_station_id",
                 "start_station_name":"start_station_name",
                 "start_station_lon": "start_station_longitude",
-                "start_station_lat":"start_stataion_latitude",
+                "start_station_lat":"start_station_latitude",
                 "end_station_id": "end_station_id",
                 "end_station_name":"end_station_name",
                 "end_station_lon": "end_station_longitude",
-                "end_station_lat":"end_stataion_latitude",
-            "station_file": "None"  
+                "end_station_lat":"end_station_latitude"
+		},
+		"station_file": "None"  
 }
 
 bluebike={"company": "bluebike",
@@ -26,11 +28,11 @@ bluebike={"company": "bluebike",
                 "start_station_id": "start_station_id",
                 "start_station_name":"start_station_name",
                 "start_station_lon": "start_station_longitude",
-                "start_station_lat":"start_stataion_latitude",
+                "start_station_lat":"start_station_latitude",
                 "end_station_id": "end_station_id",
                 "end_station_name":"end_station_name",
                 "end_station_lon": "end_station_longitude",
-                "end_station_lat":"end_stataion_latitude",
+                "end_station_lat":"end_station_latitude"
             },
             "station_file": {
                 "keyword": "station",
@@ -62,5 +64,5 @@ bluebike={"company": "bluebike",
 
 }
 
-bikeshare=json.dumps([bikebike, citibike])
+bikeshare=json.dumps([bluebike, citibike])
                 
