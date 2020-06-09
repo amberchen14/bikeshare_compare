@@ -49,11 +49,11 @@ spark = SparkSession \
 .config("spark.cleaner.referenceTracking.blocking", "false")\
 .config("spark.cleaner.referenceTracking.blocking.shuffle", "false")\
 .config("spark.cleaner.referenceTracking.cleanCheckpoints", "false")\
-.config('spark.driver.memory', '14g') \
-.config('spark.driver.cores', '20') \
-.config('spark.executor.memory', '14g') \
-.config('spark.executor.cores', '8') \
-.config('spark.default.parallelism', '16')\
+.config('spark.driver.memory', '7') \
+.config('spark.driver.cores', '2') \
+.config('spark.executor.memory', '7g') \
+.config('spark.executor.cores', '2') \
+.config('spark.default.parallelism', '14')\
 .config('spark.dynamicAllocation.enabled', 'true')\
 .getOrCreate()
 
@@ -82,43 +82,95 @@ hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
 
 
 
-def check_station_from_trip_data(file, trip):
-	print("station geometry : {}".format(file['start_station_lon'] in trip.columns))
-	if file['start_station_lon'] in trip.columns:
-		start=trip.select(func.col(file["start_station_id"]).alias("id"), 
-			func.col(file["start_station_name"]).alias("name"),
-			func.col(file["start_station_lat"]).alias("lat"),
-			func.col(file["start_station_lon"]).alias("lon")
-			).distinct()
-		end=trip.select(func.col(file["end_station_id"]).alias("id"), 
-			func.col(file["end_station_name"]).alias("name"),
-			func.col(file["end_station_lat"]).alias("lat"),
-			func.col(file["end_station_lon"]).alias("lon")
-			).distinct()
-		return start.union(end).distinct()
-	return None
+def check_station_from_trip_data(file, sub, df):
+	print("station geometry : {}".format(file['start_station_lon'] in sub.columns))	
+	if file['start_station_lon'] not in sub.columns:
+		return df
+	sub=sub.select(func.col(file["start_station_id"]).alias("id"), 
+		func.col(file["start_station_name"]).alias("name"),
+		func.col(file["start_station_lat"]).alias("lat"),
+		func.col(file["start_station_lon"]).alias("lon")
+		).union(
+		sub.select(func.col(file["end_station_id"]).alias("id"), 
+		func.col(file["end_station_name"]).alias("name"),
+		func.col(file["end_station_lat"]).alias("lat"),
+		func.col(file["end_station_lon"]).alias("lon")
+		)).distinct()
+	if df is not None:
+		df=df.union(sub)
+	else:
+		df=sub
+	return df
 
-def clean_trip_file(file, trip):
-	df = trip.select(
+def clean_trip_file(file, sub, df):
+	sub = sub.select(
 			func.to_timestamp(func.col(file['start_time']), "yyyy-MM-dd HH:mm:ss").alias('start_time'), #
 			func.to_timestamp(func.col(file['end_time']), "yyyy-MM-dd HH:mm:ss").alias('end_time'), #
-			#func.from_unixtime(func.unix_timestamp(func.col(file['trip_file']['start_time']), "yyyy-MM-dd HH:mm:ss")).alias('start_time'), #
-			#func.from_unixtime(func.unix_timestamp(func.col(file['trip_file']["end_time"]), "yyyy-MM-dd HH:mm:ss")).alias('end_time'),  # 
 			func.col(file['start_station_id']).alias('start_station_id'),
 			func.col(file['end_station_id']).alias('end_station_id')
 			).dropna()
-	cnt = df.count()
-	return df, cnt
+	if df is None:
+		df=sub
+	else:
+		df=df.union(sub)
+	return df
 
-def union_station_file(file, station):
-	df=station.select(
+def union_station_file(file, sub, df):
+	sub=sub.select(
 		func.col(file['id']).alias('id'),
 		func.col(file['name']).alias('name'),
 		func.col(file['lon']).alias('lon'),
 		func.col(file['lat']).alias('lat')
 		).distinct()
+	print("sub: {}, df:{}".format(sub, df))
+	if df is None:
+		df = sub
+	else:
+		df=df.union(sub)
 	return df
 
+def get_unique_station_table(station_df, station_from_trip_df):
+	if station_df is not None and station_from_trip_df is not None:
+		station_df=station_df.distinct()
+		station_from_trip_df=station_from_trip_df.distinct()
+		station_df.createOrReplaceTempView("station_df")
+		station_from_trip_df.createOrReplaceTempView("station_from_trip_df")
+		spark.sql('CACHE LAZY TABLE station_df')
+		spark.sql('CACHE LAZY TABLE station_from_trip_df')
+		query='select * from station_from_trip_df where id not in (select id from station_df)'
+		distinct_df=spark.sql(query)
+		station_df=station_df.union(distinct_df)
+		spark.sql('CLEAR CACHE')
+	elif station_df is None and station_from_trip_df is not None:
+		station_df=station_from_trip_df.distinct()
+	else:
+		station_df=station_df.distinct()
+	return station_df
+
+def	get_station_and_trip_with_station_uid(station_df, trip_df, station_pre_row):
+	trip_df=trip_df.select(
+		func.to_timestamp(func.col("start_time"), "yyyy-MM-dd HH:mm:ss").alias('start_time'), #
+		func.to_timestamp(func.col("end_time"), "yyyy-MM-dd HH:mm:ss").alias('end_time'), #
+		func.col("start_station_id"),
+		func.col("end_station_id")
+		)
+	trip_and_station=trip_df.join(station_df.select(func.col('id').alias('start_station_id'),
+						 func.col('lon').alias('start_station_lon'), func.col('lat').alias('start_station_lat')), on=['start_station_id'], how='left')\
+					.join(station_df.select(func.col('id').alias('end_station_id'),
+						 func.col('lon').alias('end_station_lon'), func.col('lat').alias('end_station_lat')), on=['end_station_id'], how='left')\
+					.drop('start_station_id', 'end_station_id')
+	w = Window.orderBy("lon")
+	station_df=station_df.select('lon', 'lat').dropna().distinct().withColumn('id',func.row_number().over(w)+station_pre_row)
+	station_pre_row+=station_df.count()
+	trip_df=trip_and_station.partitionBy('start_station_lon', 'start_station_lat').join(station_df.select(func.col('id').alias('start_station_id'),
+						 func.col('lon').alias('start_station_lon'), 
+						 func.col('lat').alias('start_station_lat')), 
+						on=['start_station_lon', 'start_station_lat'], how='inner')\
+					.partitionBy('end_station_lon', 'end_station_lat')\
+					.join(station_df.select(func.col('id').alias('end_station_id'),
+						 func.col('lon').alias('end_station_lon'), func.col('lat').alias('end_station_lat')), on=['end_station_lon', 'end_station_lat'], how='inner')\
+					.drop('start_station_lon', 'start_station_lat', 'end_station_lon', 'end_station_lat')
+	return station_df, trip_df, station_pre_row
 
 trip_db=None
 station_db=None
@@ -134,7 +186,7 @@ for file in data:
 	station_df=None
 	station_from_trip_df = None
 	for f in fnames:
-		if '.zip' in f or '.csv' not in f :
+		if '.zip' in f or ".html" in f:
 			continue
 		url=s3_dwd+f.replace("\n", "")
 		df = spark.read.load(url, format='csv', header='true')
@@ -144,45 +196,24 @@ for file in data:
 			for s in file['trip_file']['version']:
 				if s['start_station_id'] in df.columns:
 					break 
-			sub = check_station_from_trip_data(s, df)
-			if sub is not None:
-				if station_from_trip_df is None:
-					station_from_trip_df = sub
-				else:
-					station_from_trip_df=station_from_trip_df.union(sub)
-			if trip_df is None:
-				trip_df, trip_max_row=clean_trip_file(s, df)
-			else:
-				sub, trip_max_row=clean_trip_file(s, df)
-				trip_df=trip_df.union(sub)
-			continue
+			station_from_trip_df=check_station_from_trip_data(s, df, station_from_trip_df)
+			trip_df=clean_trip_file(s, df, trip_df)
+			continue			
 		if file['station_file']['keyword'].lower() in f.lower():
 			for s in file['station_file']['version']:
 				if s['id'] in df.columns:
 					break
-			sub=union_station_file(s, df)
-			if station_df is None:
-				station_df = sub
-			else:
-				station_df=station_df.union(sub)
-	#Merge bikeshare station
-	if station_df is not None and station_from_trip_df is not None:
-		station_df=station_df.distinct()
-		station_from_trip_df=station_from_trip_df.distinct()
-		station_df.createOrReplaceTempView("station_df")
-		station_from_trip_df.createOrReplaceTempView("station_from_trip_df")
-		spark.sql('Cache Lazy Table station_df')
-		spark.sql('Cache Lazy Table station_from_trip_df')
-		query='select * from station_from_trip_df where id not in (select id from station_df)'
-		distinct_df=spark.sql(query)
-		station_df=station_df.union(distinct_df)
+			print(s)
+			station_df=union_station_file(s, df, station_df)
+	print("station_df:{}, station_from_trip_df:{}".format(station_df, station_from_trip_df))
+	station_df=get_unique_station_table(station_df, station_from_trip_df)
+	station_df, trip_df, station_max_row=get_station_and_trip_with_station_uid(station_df, trip_df, station_max_row)
 
 
 
-	elif station_df is None and station_from_trip_df is not None:
-		station_df=station_from_trip_df.distinct()
-	else:
-		station_df=station_df.distinct()
+
+
+
 
 	trip_df=trip_df.select(
 		func.to_timestamp(func.col("start_time"), "yyyy-MM-dd HH:mm:ss"), #
@@ -190,50 +221,13 @@ for file in data:
 		func.col("start_staion_id"),
 		func.col("end_station_id")
 		)
-	a=trip_df.join(station_df.select(func.col('id').alias('start_station_id'), 'lon', 'lat'), on=['start_station_id'], how='right')
+	trip_and_station=trip_df.join(station_df.select(func.col('id').alias('start_station_id'),
+						 func.col('lon').alias('start_station_lon'), func.col('lat').alias('start_station_lat')), on=['start_station_id'], how='right')\
+					.join(station_df.select(func.col('id').alias('end_station_id'),
+						 func.col('lon').alias('end_station_lon'), func.col('lat').alias('end_station_lat')), on=['end_station_id'], how='right')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		#No station file
-		if file['station_file']=='None':
-				station_df=union_station_file(file[])
-				#station_rdd=station_df.rdd
-		
-		trip_df=trip_df.select(
-				func.to_timestamp(func.col(file['trip_file']['start_time']), "yyyy-MM-dd HH:mm:ss").alias('start_time'), #
-				func.to_timestamp(func.col(file['trip_file']['end_time']), "yyyy-MM-dd HH:mm:ss").alias('end_time'), #
-				#func.from_unixtime(func.unix_timestamp(func.col(file['trip_file']['start_time']), "yyyy-MM-dd HH:mm:ss")).alias('start_time'), #
-				#func.from_unixtime(func.unix_timestamp(func.col(file['trip_file']["end_time"]), "yyyy-MM-dd HH:mm:ss")).alias('end_time'),  # 
-				func.col(file['trip_file']['start_station_id']).alias('start_station_id'),
-				func.col(file['trip_file']['end_station_id']).alias('end_station_id')
-				)
-
-		station_bike_usage= trip_df.select(func.col('start_station_id').alias('station_id'), func.col('start_time').alias('time'), func.lit(1).alias('action'))\
-				.union(trip_df.select(func.col('end_station_id').alias('station_id'), func.col('end_time').alias('time'), func.lit(-1).alias('action')))
-		window = Window.partitionBy("station_id").orderBy("time")  
-		station_bike_usage=station_bike_usage.select('station_id', 'time', 'action', func.sum('action').over(window).alias('usage'))
-
-
-
-#rentBike= trip_df.select(func.col('start_station_id').alias('station_id'), func.col('starttime').alias('time')).withColumn('action', lit(0))
-
-
-
-
-
+	w = Window.orderBy("lon")
+	station_df=station_df.select('lon', 'lat').dropna().dropDuplicates(['lon', 'lat']).withColumn('id',func.row_number()+max_station_row)
 
 sc.stop()
 
