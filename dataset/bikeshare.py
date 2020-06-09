@@ -72,6 +72,76 @@ bluebike={"company": "bluebike",
             }
 }
 
+
+divvy={"company": "divvy",
+           # "state": "MA",
+            "city": "Boston",
+            "trip_file":{
+                "keyword": "trip",
+                "version":[{
+                    "start_time":"start_time",
+                    "end_time": "end_time",
+                    "start_station_id": "from_station_id",
+                    "start_station_name":"from_station_name",
+                    "end_station_id": "to_station_id",
+                    "end_station_name":"to_station_name"
+                },{
+                    "start_time":"starttime",
+                    "end_time": "stoptime",
+                    "start_station_id": "start_station_id",
+                    "start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    "end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                },
+                ]
+            },
+            "station_file": {
+                "keyword": "station",
+                "version":[{
+                    "id": "Number",
+                    "name": "Name",
+                    "lon":"Longitude",
+                    "lat":"Latitude"                    
+                    },{
+                    "id": "Station_ID",
+                    "name": "Station",
+                    "lon":"Longitude",
+                    "lat":"Latitude"                        
+                }
+              ]
+
+            }
+}
+start_time  end_time    start_station_id    start_station_name  start_station_latitude  start_station_longitude end_station_id  end_station_name    end_station_latitude    end_station_longitude
+
+lyft={
+    "company": "lyft",
+            "trip_file":{
+                "keyword": "trip",
+                "version":[{
+                    "start_time":"start_time",
+                    "end_time": "end_time",
+                    "start_station_id": "start_station_id",
+                    "start_station_name":"start_station_name",
+                    "end_station_id": "start_station_id",
+                    "end_station_name":"start_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude"                                        
+                }
+                ]
+            },
+
+
+}
+cogo={
+    start_time  end_time    bikeid  tripduration    from_station_location   from_station_id from_station_name   to_station_location to_station_id
+}
 bikeshare=json.dumps([bluebike])
 
 
