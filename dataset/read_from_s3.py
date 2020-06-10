@@ -24,6 +24,57 @@ import pandas as pd
 import requests
 
 from bikeshare.py import bikeshare
+import json
+
+
+bluebike={"company": "bluebike",
+           # "state": "MA",
+            "city": "Boston",
+            "trip_file":{
+            	"keyword": "trip",
+            	"version":[{
+	                "start_time":"Start_Date",
+	                "end_time": "End_Date",
+	                "start_station_id": "Start_station_number",
+	                "start_station_name":"Start_station_name",
+	                "end_station_id": "End_station_number",
+	                "end_station_name":"End_station_name",
+	                "end_station_lon": "End_station_longitude",
+	                "end_station_lat":"End_station_latitude",	                
+	                "start_station_lon": "Start_station_longitude",
+	                "start_station_lat":"Start_station_latitude"
+            	},{
+	                "start_time":"starttime",
+	                "end_time": "stoptime",
+	                "start_station_id": "start_station_id",
+	                "start_station_name":"start_station_name",
+	                "start_station_lon": "start_station_longitude",
+	                "start_station_lat":"start_station_latitude",
+	                "end_station_id": "end_station_id",
+	                "end_station_name":"end_station_name",
+	                "end_station_lon": "end_station_longitude",
+	                "end_station_lat":"end_station_latitude"
+            	},
+            	]
+            },
+            "station_file": {
+                "keyword": "station",
+                "version":[{
+	                "id": "Number",
+	                "name": "Name",
+	                "lon":"Longitude",
+	                "lat":"Latitude"                 	
+	                },{
+		            "id": "Station_ID",
+		            "name": "Station",
+		            "lon":"Longitude",
+		            "lat":"Latitude"                        
+	            }
+              ]
+
+            }
+}
+bikeshare=json.dumps([bluebike])
 
 #s.environ['PYSPARK_SUBMIT_ARGS']='--jars /home/amber/spark/jars/aws-java-sdk-1.11.30.jar,/home/amber/spark/jars/hadoop-aws-2.7.7.jar,/home/amber/spark/jars/jets3t-0.9.4.jar pyspark-shell'i
 #os.environ['PYSPARK_SUBMIT_ARGS']='--jars spark/jars/aws-java-sdk-1.11.30.jar,spark/jars/hadoop-aws-2.7.7.jar,spark/jars/jets3t-0.9.4.jar pyspark-shell'
@@ -49,12 +100,12 @@ spark = SparkSession \
 .config("spark.cleaner.referenceTracking.blocking", "false")\
 .config("spark.cleaner.referenceTracking.blocking.shuffle", "false")\
 .config("spark.cleaner.referenceTracking.cleanCheckpoints", "false")\
-.config('spark.driver.memory', '7') \
+.config('spark.driver.memory', '8g') \
 .config('spark.driver.cores', '2') \
-.config('spark.executor.memory', '7g') \
-.config('spark.executor.cores', '2') \
-.config('spark.default.parallelism', '14')\
-.config('spark.dynamicAllocation.enabled', 'true')\
+.config('spark.driver.maxResultSize', '5g')\
+.config('spark.executor.memory', '8g') \
+.config('spark.executor.cores', '6') \
+.config('spark.default.parallelism', '16')\
 .getOrCreate()
 
 #spark.executor.cores = number of CPUs on a worker node
@@ -68,7 +119,7 @@ spark = SparkSession \
 #.config('spark.driver.cores','2') \
 #.config('spark.driver.memory', '3g') \
 #.config('spark.default.parallelism', '100') \
-
+#.config('spark.dynamicAllocation.enabled', 'true')\
 # Create Spark Context
 sc = spark.sparkContext
 
@@ -80,6 +131,29 @@ hadoop_conf.set("fs.s3a.awsSecretAccessKey", access_key)
 hadoop_conf.set("spark.hadoop.fs.s3a.endpoint", "s3."+access_region+".amazonaws.com")
 hadoop_conf.set("com.amazonaws.services.s3a.enableV4", "true")
 
+
+def write_to_psql(df, table_name, action):
+	df.write \
+    .format("jdbc") \
+    .mode(action)\
+    .option("url", "jdbc:postgresql://10.0.0.9:5432/abc") \
+    .option("dbtable", table_name) \
+    .option("user", "test") \
+    .option("driver", "org.postgresql.Driver")\
+    .option("password","test00")\
+    .save()
+
+def get_value_from_psql(value, table_name):
+	query = "select "+ value + " from " + table_name
+	out= spark.read \
+	.format("jdbc") \
+	.option("url", "jdbc:postgresql://10.0.0.9:5432/abc") \
+    .option("user", "test") \
+    .option("driver", "org.postgresql.Driver")\
+    .option("password","test00")\
+    .option("query", query)\
+    .load()
+	return out
 
 
 def check_station_from_trip_data(file, sub, df):
@@ -154,26 +228,26 @@ def	get_station_and_trip_with_station_uid(station_df, trip_df, station_pre_row):
 		func.col("start_station_id"),
 		func.col("end_station_id")
 		)
-	trip_and_station=trip_df.join(station_df.select(func.col('id').alias('start_station_id'),
+	print("join trip from station geometry")
+	trip_df=trip_df.join(station_df.select(func.col('id').alias('start_station_id'),
 						 func.col('lon').alias('start_station_lon'), func.col('lat').alias('start_station_lat')), on=['start_station_id'], how='left')\
 					.join(station_df.select(func.col('id').alias('end_station_id'),
 						 func.col('lon').alias('end_station_lon'), func.col('lat').alias('end_station_lat')), on=['end_station_id'], how='left')\
 					.drop('start_station_id', 'end_station_id')
 	w = Window.orderBy("lon")
 	station_df=station_df.select('lon', 'lat').dropna().distinct().withColumn('id',func.row_number().over(w)+station_pre_row)
-	station_pre_row+=station_df.count()
-	trip_df=trip_and_station.partitionBy('start_station_lon', 'start_station_lat').join(station_df.select(func.col('id').alias('start_station_id'),
+	print("calculation number of station")
+	station_pre_row=station_df.select('id').cache().count() #rdd.max(lambda x:x)['count']
+	station_df.unpersist()
+	trip_df=trip_df.join(station_df.select(func.col('id').alias('start_station_id'),
 						 func.col('lon').alias('start_station_lon'), 
 						 func.col('lat').alias('start_station_lat')), 
 						on=['start_station_lon', 'start_station_lat'], how='inner')\
-					.partitionBy('end_station_lon', 'end_station_lat')\
 					.join(station_df.select(func.col('id').alias('end_station_id'),
 						 func.col('lon').alias('end_station_lon'), func.col('lat').alias('end_station_lat')), on=['end_station_lon', 'end_station_lat'], how='inner')\
 					.drop('start_station_lon', 'start_station_lat', 'end_station_lon', 'end_station_lat')
 	return station_df, trip_df, station_pre_row
 
-trip_db=None
-station_db=None
 station_max_row=0
 trip_max_row=0
 
@@ -185,6 +259,7 @@ for file in data:
 	trip_df=None
 	station_df=None
 	station_from_trip_df = None
+	station_bike_usage=None
 	for f in fnames:
 		if '.zip' in f or ".html" in f:
 			continue
@@ -208,33 +283,13 @@ for file in data:
 	print("station_df:{}, station_from_trip_df:{}".format(station_df, station_from_trip_df))
 	station_df=get_unique_station_table(station_df, station_from_trip_df)
 	station_df, trip_df, station_max_row=get_station_and_trip_with_station_uid(station_df, trip_df, station_max_row)
+	station_bike_usage= trip_df.select(func.col('start_station_id').alias('station_id'), func.col('start_time').alias('time'), func.lit(1).alias('action'))\
+				.union(trip_df.select(func.col('end_station_id').alias('station_id'), func.col('end_time').alias('time'), func.lit(-1).alias('action')))
+	window = Window.partitionBy("station_id").orderBy("time")  
+	station_bike_usage=station_bike_usage.select('station_id', 'time', 'action', func.sum('action').over(window).alias('usage'))
+	write_to_psql(station_df, 'station', 'append')
+	write_to_psql(trip_df, 'trip', 'append')
+	wirte_to_psql('station_bike_usage', 'append')
 
-
-
-
-
-
-
-	trip_df=trip_df.select(
-		func.to_timestamp(func.col("start_time"), "yyyy-MM-dd HH:mm:ss"), #
-		func.to_timestamp(func.col("end_time"), "yyyy-MM-dd HH:mm:ss"), #
-		func.col("start_staion_id"),
-		func.col("end_station_id")
-		)
-	trip_and_station=trip_df.join(station_df.select(func.col('id').alias('start_station_id'),
-						 func.col('lon').alias('start_station_lon'), func.col('lat').alias('start_station_lat')), on=['start_station_id'], how='right')\
-					.join(station_df.select(func.col('id').alias('end_station_id'),
-						 func.col('lon').alias('end_station_lon'), func.col('lat').alias('end_station_lat')), on=['end_station_id'], how='right')
-
-	w = Window.orderBy("lon")
-	station_df=station_df.select('lon', 'lat').dropna().dropDuplicates(['lon', 'lat']).withColumn('id',func.row_number()+max_station_row)
 
 sc.stop()
-
-
-
-
-
-
-
-
