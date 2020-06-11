@@ -1,0 +1,1 @@
+All fields for NPMRDS from INRIX (Trucks and passenger vehicles) data for I-35 from Jan 01, 2018 through Aug 31, 2019
