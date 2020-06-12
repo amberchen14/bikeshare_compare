@@ -162,8 +162,18 @@ def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 	uid=station_pre_row
 	df['uid']=uid
 	geo_trajectory, id_trajectory=[], []
+	id_dict=dict()
+	uid_dict=dict()
+
 	for index, row in df.iterrows():
 		if row['id'] not in id_trajectory and [row['lon'], row['lat']] not in geo_trajectory:
+			for i in id_trajectory:
+				id_dict[i]=geo_trajectory
+				uid_dict[i]=uid
+			if row['id'] in id_dict:
+				id_dict[row['id']].append([row['lon'], row['lat']])
+				row['uid']=uid_dict[row['id']]
+				continue
 			uid+=1
 			df['uid'][index]=uid
 			geo_trajectory=[[row['lon'], row['lat']]]
