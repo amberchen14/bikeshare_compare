@@ -141,12 +141,16 @@ def get_value_from_psql(value, table_name):
 	return out
 
 def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
-	df=station_df.union(station_from_trip_df)\
-	.select("id",
-			func.round(func.col("lon").cast(DoubleType()), 8).alias('lon'),
-			func.round(func.col("lat").cast(DoubleType()), 8).alias('lat'))\
-			.distinct().dropna()\
-			.filter(func.col('lon')!=0).filter(func.col('lat')!=0 ).toPandas().sort_values(['lon', 'lat', 'id'])
+	if station_df is None and station_from_trip_df is None:
+		return None, station_pre_row
+	elif station_df is None and station_from_trip_df is not None:
+		df=station_from_trip_df
+	elif station_df is not None and station_from_trip_df is None:
+		df=station_df
+	else:
+		df=station_df.append(station_from_trip_df)
+	df['lon']=df['lon'].astype(float).round(8)
+	df['lat']=df['lat'].astype(float).round(8)
 	uid=station_pre_row
 	df['uid']=uid
 	id_dict, geo_dict=dict(), dict()
@@ -181,11 +185,12 @@ def station_from_trip_table(file, sub, df):
 			func.col(file["end_station_id"]).alias("id"), 
 			func.col(file["end_station_lon"]).alias('lon'),
 			func.col(file["end_station_lat"]).alias('lat'))
-			)
+			).filter(func.col('lon')!=0).filter(func.col('lat')!=0 )
+	sub=sub.toPandas().dropna().drop_duplicates()
 	if df is None:
 		df=sub
 	else:
-		df=df.union(sub)
+		df=df.append(sub).drop_duplicates()
 	return df
 
 def union_station_table(file, sub, df):
@@ -193,11 +198,11 @@ def union_station_table(file, sub, df):
 		func.col(file['id']).alias('id'),
 		func.round(func.col(file['lon']).cast(DoubleType()), 8).alias('lon'),
 		func.round(func.col(file['lat']).cast(DoubleType()), 8).alias('lat')
-		)
+		).toPandas().filter(func.col('lon')!=0).filter(func.col('lat')!=0 )
 	if df is None:
 		df=sub
 	else:
-		df=df.union(sub)	
+		df=df.append(sub).drop_duplicates()	
 	return df
 
 def clean_trip_table(file, sub, df):
@@ -240,21 +245,16 @@ def get_station_bike_usage(station_df, trip_df):
 				.otherwise((station_bike_usage_df.time.cast('bigint') - station_bike_usage_df.pre_time.cast('bigint'))/60).cast('bigint'))\
 				.drop('pre_time')
 	return station_bike_usage_df
-
-
-station_max_row=0
+    #--recursive
+	#fnames=os.popen('aws s3 ls '+s3_url+" | awk '{print $4}'").readlines()	
+station_max_row=get_value_from_psql("max uid", "station").toPandas()['max'][0]
 trip_max_row=0
 data = json.loads(bikeshare)
 for file in data:
 	s3_url="s3://"+s3_bucket+"/"+file['company']+"/"
 	s3_dwd="s3a://"+s3_bucket+"/"+file['company']+"/"
-	fnames=os.popen('aws s3 ls '+s3_url+" | awk '{print $4}'").readlines()	
-	query='aws s3 --recursive '+s3_url+" | '{$1=$2=$3=\"\"; print $0}'  | sed 's/^[\\t]*/ //'"
+	query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
 	fnames=os.popen(query).readlines()
-
-
-aws s3 ls s3://mybucket --recursive | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//' 
-
 	trip_df=None
 	station_df=None
 	station_from_trip_df = None
