@@ -25,55 +25,43 @@ import requests
 from bikeshare.py import bikeshare
 import json
 
-
-bluebike={"company": "bluebike",
-			"city": "Boston",
+citibike={"company": "citibike",
+            "city": "NYC",
             "trip_file":{
-            	"keyword": "trip",
-            	"version":[{
-	                "start_time":"Start_Date",
-	                "end_time": "End_Date",
-	                "start_station_id": "Start_station_number",
-	                "start_station_name":"Start_station_name",
-	                "end_station_id": "End_station_number",
-	                "end_station_name":"End_station_name",
-	                "end_station_lon": "End_station_longitude",
-	                "end_station_lat":"End_station_latitude",	                
-	                "start_station_lon": "Start_station_longitude",
-	                "start_station_lat":"Start_station_latitude"
-            	},{
-	                "start_time":"starttime",
-	                "end_time": "stoptime",
-	                "start_station_id": "start_station_id",
-	                "start_station_name":"start_station_name",
-	                "start_station_lon": "start_station_longitude",
-	                "start_station_lat":"start_station_latitude",
-	                "end_station_id": "end_station_id",
-	                "end_station_name":"end_station_name",
-	                "end_station_lon": "end_station_longitude",
-	                "end_station_lat":"end_station_latitude"
-            	},
-            	]
-            },
-            "station_file": {
-                "keyword": "station",
-                "version":[{
-	                "id": "Number",
-	                "name": "Name",
-	                "lon":"Longitude",
-	                "lat":"Latitude"                 	
-	                },{
-		            "id": "Station_ID",
-		            "name": "Station",
-		            "lon":"Longitude",
-		            "lat":"Latitude"                        
-	            }
-              ]
-
-            }
+                "keyword": "trip",
+                "version":[
+                    {
+                    "start_time": "starttime",
+                    "end_time": "stoptime",
+                    "start_station_id": "start_station_id",
+                    #"start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    #"end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                    },
+                    {
+                    "start_time": "start_time",
+                    "end_time": "stop_Time",
+                    "start_station_id": "start_station_id",
+                    #"start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    #"end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                    }                   
+                ]
+        },
+        "station_file": {
+                 "keyword": "none"
+                 }  
 }
-bikeshare=json.dumps([bluebike])
 
+bikeshare=json.dumps([citibike])
 #s.environ['PYSPARK_SUBMIT_ARGS']='--jars /home/amber/spark/jars/aws-java-sdk-1.11.30.jar,/home/amber/spark/jars/hadoop-aws-2.7.7.jar,/home/amber/spark/jars/jets3t-0.9.4.jar pyspark-shell'i
 #os.environ['PYSPARK_SUBMIT_ARGS']='--jars spark/jars/aws-java-sdk-1.11.30.jar,spark/jars/hadoop-aws-2.7.7.jar,spark/jars/jets3t-0.9.4.jar pyspark-shell'
 #os.environ['PYTHONHASHSEED']='0'
@@ -161,28 +149,24 @@ def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 			.filter(func.col('lon')!=0).filter(func.col('lat')!=0 ).toPandas().sort_values(['lon', 'lat', 'id'])
 	uid=station_pre_row
 	df['uid']=uid
-	geo_trajectory, id_trajectory=[], []
-	id_dict=dict()
-	uid_dict=dict()
-
+	id_dict, geo_dict=dict(), dict()
 	for index, row in df.iterrows():
-		if row['id'] not in id_trajectory and [row['lon'], row['lat']] not in geo_trajectory:
-			for i in id_trajectory:
-				id_dict[i]=geo_trajectory
-				uid_dict[i]=uid
-			if row['id'] in id_dict:
-				id_dict[row['id']].append([row['lon'], row['lat']])
-				row['uid']=uid_dict[row['id']]
-				continue
+		if row['id'] not in id_dict and (row['lon'], row['lat']) not in geo_dict:
 			uid+=1
-			df['uid'][index]=uid
-			geo_trajectory=[[row['lon'], row['lat']]]
-			id_trajectory=[row['id']]
+			id_dict[row['id']]=uid
+			geo_dict[row['lon'], row['lat']]=uid
+		elif row['id'] in id_dict and (row['lon'], row['lat']) not in geo_dict:
+			df['uid'][index]=id_dict[row['id']]
+			geo_dict[row['lon'], row['lat']]=id_dict[row['id']]
+		elif row['id'] not in id_dict and (row['lon'], row['lat']) in geo_dict:
+			df['uid'][index]=geo_dict[row['lon'], row['lat']]
+			id_dict[row['id']]=geo_dict[row['lon'], row['lat']]
+		else:
+			id_dict[row['id']]=geo_dict[row['lon'], row['lat']]
 			continue
-		geo_trajectory.append([row['lon'], row['lat']])
-		id_trajectory.append(row['id'])
-		df['uid'][index]=uid
-	return spark.createDataFrame(df), uid
+	for index, row in df.iterrows():
+		df['uid'][index]=id_dict[row['id']]
+	return spark.createDataFrame(df), max(df['uid'])
 
 def station_from_trip_table(file, sub, df):
 	print("station geometry : {}".format(file['start_station_lon'] in sub.columns))	
@@ -231,7 +215,7 @@ def clean_trip_table(file, sub, df):
 
 
 def	get_trip_with_station_uid(file, station_df, trip_df):
-	df=station_df.select('id', 'uid')
+	df=station_df.select('id', 'uid').distinct()
 	trip_df=trip_df.join(func.broadcast(df.select(func.col('id').alias('start_station_id'), func.col("uid").alias('start_uid'))), on=['start_station_id'])\
 					.join(func.broadcast(df.select(func.col('id').alias('end_station_id'), func.col("uid").alias('end_uid'))), on=['end_station_id'])\
 					.drop('start_station_id', 'end_station_id')\
@@ -264,7 +248,13 @@ data = json.loads(bikeshare)
 for file in data:
 	s3_url="s3://"+s3_bucket+"/"+file['company']+"/"
 	s3_dwd="s3a://"+s3_bucket+"/"+file['company']+"/"
-	fnames=os.popen('aws s3 ls '+s3_url+" | awk '{print $4}'").readlines()
+	fnames=os.popen('aws s3 ls '+s3_url+" | awk '{print $4}'").readlines()	
+	query='aws s3 --recursive '+s3_url+" | '{$1=$2=$3=\"\"; print $0}'  | sed 's/^[\\t]*/ //'"
+	fnames=os.popen(query).readlines()
+
+
+aws s3 ls s3://mybucket --recursive | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//' 
+
 	trip_df=None
 	station_df=None
 	station_from_trip_df = None
@@ -297,7 +287,6 @@ for file in data:
 	station_df, trip_df=get_trip_with_station_uid(file, station_df, trip_df)
 	station_bike_usage_df=get_station_bike_usage(station_df, trip_df)
 	station_bike_usage_df=station_bike_usage_df.cache()
-
 	write_to_psql(station_df, 'station', 'append')
 	write_to_psql(trip_df, 'trip', 'append')
 	write_to_psql(station_bike_usage_df, 'station_bike_usage', 'append')
@@ -308,4 +297,4 @@ for file in data:
 	station_bike_usage_df=None
 
 
-#sc.stop()
+sc.stop()
