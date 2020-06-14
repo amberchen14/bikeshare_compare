@@ -64,7 +64,7 @@ citibike={"company": "citibike",
                 	"end_station_lat":"end_station_latitude"
                 	},
             		{
-            	    "start_time": "start_Time",
+            	    "start_time": "start_time",
                 	"end_time": "stop_Time",
                 	"start_station_id": "start_station_id",
                 	#"start_station_name":"start_station_name",
@@ -264,7 +264,79 @@ niceride={
 }
 
 
-bikeshare=json.dumps([niceride])
+citibike={"company": "citibike",
+            "city": "NYC",
+            "trip_file":{
+                "keyword": "trip",
+                "version":[
+                    {
+                    "start_time": "starttime",
+                    "end_time": "stoptime",
+                    "start_station_id": "start_station_id",
+                    #"start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    #"end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                    },
+                    {
+                    "start_time": "start_time",
+                    "end_time": "stop_Time",
+                    "start_station_id": "start_station_id",
+                    #"start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    #"end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                    }                   
+                ]
+        },
+        "station_file": {
+                 "keyword": "none"
+                 }  
+}
+
+indego={"company": "indego",
+            "city": "philly",
+            "trip_file":{
+                "keyword": "trip",
+                "version":[
+                    {
+                    "start_time": "starttime",
+                    "end_time": "stoptime",
+                    "start_station_id": "start_station_id",
+                    #"start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    #"end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                    },
+                    {
+                    "start_time": "start_time",
+                    "end_time": "stop_Time",
+                    "start_station_id": "start_station_id",
+                    #"start_station_name":"start_station_name",
+                    "start_station_lon": "start_station_longitude",
+                    "start_station_lat":"start_station_latitude",
+                    "end_station_id": "end_station_id",
+                    #"end_station_name":"end_station_name",
+                    "end_station_lon": "end_station_longitude",
+                    "end_station_lat":"end_station_latitude"
+                    }                   
+                ]
+        },
+        "station_file": {
+                 "keyword": "none"
+                 }  
+}
+
+bikeshare=json.dumps([citibike])
 
 
 #bikeshare=json.dumps([bluebike, citibike, cogo, capital, divvy, lyft])
