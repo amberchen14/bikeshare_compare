@@ -8,22 +8,20 @@ Created on Wed Jun  3 20:39:15 2020
 
 
 #!/usr/bin/python3
-import os, sys, time
-#import dateutil.parser as dup
-import boto3
+import os, sys, time, boto3, requests, json, glob, shutil, zipfile, configparser
+import s3fs
+from bs4 import BeautifulSoup
+from functools import reduce 
+import urllib.request
+import pandas as pd
 from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.types import StringType, DateType, DoubleType
 from pyspark.sql.utils import AnalysisException
-import configparser
-from functools import reduce 
 from pyspark.sql.window import Window
 import pyspark.sql.functions as func
-import pandas as pd
-import requests
-
 from bikeshare.py import bikeshare
-import json
 
 citibike={"company": "citibike",
             "city": "NYC",
@@ -173,20 +171,22 @@ def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 	return spark.createDataFrame(df), max(df['uid'])
 
 def station_from_trip_table(file, sub, df):
-	print("station geometry : {}".format(file['start_station_lon'] in sub.columns))	
 	if file['start_station_lon'] not in sub.columns:
 		return df
-	sub=sub.select(
-				func.col(file["start_station_id"]).alias("id"), 
-				func.col(file["start_station_lon"]).alias('lon'),
-				func.col(file["start_station_lat"]).alias('lat'))\
-		.union(
-			sub.select(
-			func.col(file["end_station_id"]).alias("id"), 
-			func.col(file["end_station_lon"]).alias('lon'),
-			func.col(file["end_station_lat"]).alias('lat'))
-			).filter(func.col('lon')!=0).filter(func.col('lat')!=0 )
-	sub=sub.toPandas().dropna().drop_duplicates()
+	sub=sub[[file['start_station_id'], file['start_station_lon'], file['start_station_lat']]]\
+			.rename(columns={
+				file['start_station_id']: 'id',
+				file['start_station_lon']: 'lon',
+				file['start_station_lat']: 'lat'
+				})\
+			.append( sub[[file['end_station_id'], file['end_station_lon'], file['end_station_lat']]]\
+			.rename(columns={
+				file['end_station_id']: 'id',
+				file['end_station_lon']: 'lon',
+				file['end_station_lat']: 'lat'
+				})
+			)
+	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()
 	if df is None:
 		df=sub
 	else:
@@ -194,6 +194,13 @@ def station_from_trip_table(file, sub, df):
 	return df
 
 def union_station_table(file, sub, df):
+	sub=sub[[file['id'], file['lon'], file['lat']]]\
+			.rename(columns={
+				file['id']: 'id',
+				file['lon']: 'lon',
+				file['lat']: 'lat'
+				})
+	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()		
 	sub=sub.select(
 		func.col(file['id']).alias('id'),
 		func.round(func.col(file['lon']).cast(DoubleType()), 8).alias('lon'),
@@ -217,7 +224,6 @@ def clean_trip_table(file, sub, df):
 	else:
 		df=df.union(sub)
 	return df
-
 
 def	get_trip_with_station_uid(file, station_df, trip_df):
 	df=station_df.select('id', 'uid').distinct()
@@ -245,45 +251,49 @@ def get_station_bike_usage(station_df, trip_df):
 				.otherwise((station_bike_usage_df.time.cast('bigint') - station_bike_usage_df.pre_time.cast('bigint'))/60).cast('bigint'))\
 				.drop('pre_time')
 	return station_bike_usage_df
-    #--recursive
-	#fnames=os.popen('aws s3 ls '+s3_url+" | awk '{print $4}'").readlines()	
-station_max_row=get_value_from_psql("max uid", "station").toPandas()['max'][0]
+
+station_max_row=get_value_from_psql("max (uid)", "station").toPandas()['max'][0]
 trip_max_row=0
 data = json.loads(bikeshare)
-for file in data:
+for file in data:	
 	s3_url="s3://"+s3_bucket+"/"+file['company']+"/"
 	s3_dwd="s3a://"+s3_bucket+"/"+file['company']+"/"
 	query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
-	fnames=os.popen(query).readlines()
-	trip_df=None
-	station_df=None
-	station_from_trip_df = None
-	station_bike_usage_df=None
+	fnames=os.popen(query).readlines()	
+	count = 0
+	station_from_trip_df = None #	station_df = None
+	trip_df = None	
 	for f in fnames:
-		if '.zip' in f or ".html" in f or 'README' in f:
+		if '.zip' in f:
 			continue
+		if "csv" not in f and "txt" not in f:
+			continue	
+		count+=1
+		f=f.replace("\n", "")
 		url=s3_dwd+f.replace("\n", "")
 		sub = spark.read.load(url, format='csv', header='true')
 		sub = reduce(lambda sub, idx: sub.withColumnRenamed(sub.columns[idx], 
 															sub.columns[idx].replace(" ", "_")),
 															range(len(sub.columns)), sub)
-		print("file: {}\ncolumn:{} \n".format(f, sub))
+		csv=pd.read_csv(s3_url+f)
+		csv.columns = map(str.lower, csv.columns)
+		csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")
+		print("count: {}\nfile: {}\ncolumn:{} \n".format(count, f, sub))
 		if (file['trip_file']['keyword'].lower() in f.lower()):
 			for s in file['trip_file']['version']:
 				if s['start_station_id'] in sub.columns:
 					break 
-			station_from_trip_df=station_from_trip_table(s, sub, station_from_trip_df)
-			trip_df=clean_trip_table(s, sub, trip_df)
+			station_from_trip_df=station_from_trip_table(s, csv, station_from_trip_df)#trip_df=clean_trip_table(s, sub, trip_df)
 			continue			
 		if file['station_file']['keyword'].lower() in f.lower():
 			for s in file['station_file']['version']:
-				if s['id'] in sub.columns:
+				if s['id'] in csv.columns:
 					break
 			print(s)
-			station_df=union_station_table(s, sub, station_df)
+			station_df=union_station_table(s, csv, station_df)
 	print("station_df:{}, station_from_trip_df:{}".format(station_df, station_from_trip_df))
 	station_df, station_max_row=get_unique_station_table(station_df, station_from_trip_df, station_max_row)
-	trip_df, station_df=trip_df.cache(), station_df.cache()
+	trip_df=trip_df.cache()
 	station_df, trip_df=get_trip_with_station_uid(file, station_df, trip_df)
 	station_bike_usage_df=get_station_bike_usage(station_df, trip_df)
 	station_bike_usage_df=station_bike_usage_df.cache()
