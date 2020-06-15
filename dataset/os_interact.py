@@ -101,6 +101,7 @@ for f in files:
 
 
 def create_trip_schema(columns):
+	print(columns)
 	start_time=input("Enter column name of start time:")
 	end_time=input("Enter column name of end time:")
 	start_id=input("Enter column name of start station id:")
@@ -118,12 +119,12 @@ def create_trip_schema(columns):
     	"start_station_lat":start_lat,
     	"end_station_id": end_id,
     	"end_station_lon": end_lon,
-   		 "end_station_lat": end_lat
-    			
+   		 "end_station_lat": end_lat    			
    		}
-   	return schema
+	return schema
 
-def create_station_schema(key, columns):
+def create_station_schema(columns):
+	print(columns)
 	station_id=input("Enter column name of station id:")
 	lon=input("Enter column name of station longitude:")
 	lat=input("Enter column name of station latitude:")		
@@ -134,27 +135,31 @@ def create_station_schema(key, columns):
         "lat":lat 
 	}
 	return schema
+
 def update_schema(fname, columns, schema):
-	if schema['trip_file']['keyword'] in fname:
+	if schema['trip_file']['keyword'].lower() in fname.lower():
 		version=schema['trip_file']['version']
 		for v in version:
-			if v['columns']==columns:
+			if len(columns.difference(v['columns']))==0:	
 				return v, schema
 		sub=create_trip_schema(columns)
 		schema['trip_file']['version'].append(sub)
 		return sub, schema
-	elif schema['station_file']['keyword'] in fname
+	elif schema['station_file']['keyword'].lower() in fname.lower():
 		version=schema['trip_file']['version']
 		for v in version:
-			if v['columns']==columns:
+			if len(columns.difference(v['columns']))==0:
 				return v, schema
 		sub=create_station_schema(columns)
 		schema['station_file']['version'].append(sub)
 		return sub, schema		
 	return None, schema
 
-def initial_schema():
-	company = input("Enter company name:")
+def initial_schema(company):
+	c = input("Enter company name if not " + company+" :")
+	if c !="":
+		company = c
+	print(fnames)
 	city = input("Enter city name:")
 	trip_key=input("Enter keyword of trip file name:")
 	station_key=input("Enter keyword of station file name:")	
@@ -171,25 +176,23 @@ def initial_schema():
 	return schema 
 
 
-
-
-
 url="s3://"+s3_bucket+"/"
-query="aws s3 ls "+ url+  " awk '{print $2}' "
-folders=os.popen(query).readlines()	
-
-
-
-
-for file in folders:
-	s3_url="s3://"+s3_bucket+"/"+file
-	s3_dwd="s3a://"+s3_bucket+"/"+file
+query="aws s3 ls "+ url+  " | awk '{print $2}' "
+companies=os.popen(query).readlines()	
+schema = None
+company_schema = dict()
+for company in companies: 
+	company=company.replace("/\n","")
+	s3_url="s3://"+s3_bucket+"/"+company+"/"
+	s3_dwd="s3a://"+s3_bucket+"/"+company+"/"
 	query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
-	fnames=os.popen(query).readlines()
+	fnames=os.popen(query).readlines()	
+	schema=initial_schema(company)
 	count = 0
 	station_from_trip_df = None #	station_df = None
 	trip_df = None	
-	pre_column = None
+	pre_columns = None
+	sub_schema = None
 	for f in fnames:
 		if '.zip' in f:
 			continue
@@ -202,22 +205,17 @@ for file in folders:
 		sub = reduce(lambda sub, idx: sub.withColumnRenamed(sub.columns[idx], 
 															sub.columns[idx].replace(" ", "_")),
 															range(len(sub.columns)), sub)
-		csv=pd.read_csv(s3_url+f)	
-		print("count: {}\nfile: {}\ncolumn:{} \n".format(count, f, sub))
-		get_schema(company,  bikeshare_dict, csv.columns)
+		csv=pd.read_csv(s3_url+f)
+		csv.columns = map(str.lower, csv.columns)
+		csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")	
+		columns=csv.columns			
+		print("count: {}\nfile: {}\ncolumn:{} \n".format(count, f, columns))
+		if pre_columns is None or len(columns.difference(pre_columns))!=0:
+			sub_schema, schema=update_schema(f, csv.columns, schema)
+			pre_columns=columns
 
-		if (file['trip_file']['keyword'].lower() in f.lower()):
-			for s in file['trip_file']['version']:
-				if s['start_station_id'] in sub.columns:
-					break 
-			station_from_trip_df=station_from_trip_table(s, csv, station_from_trip_df)#trip_df=clean_trip_table(s, sub, trip_df)
-			continue			
-		if file['station_file']['keyword'].lower() in f.lower():
-			for s in file['station_file']['version']:
-				if s['id'] in csv.columns:
-					break
-			print(s)
-			station_df=union_station_table(s, csv, station_df)
+
+
 
 
 
