@@ -17,49 +17,11 @@ import pandas as pd
 from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.types import StringType, DateType, DoubleType
+from pyspark.sql.types import *
 from pyspark.sql.utils import AnalysisException
 from pyspark.sql.window import Window
 import pyspark.sql.functions as func
-from bikeshare.py import bikeshare
 
-citibike={"company": "citibike",
-            "city": "NYC",
-            "trip_file":{
-                "keyword": "trip",
-                "version":[
-                    {
-                    "start_time": "starttime",
-                    "end_time": "stoptime",
-                    "start_station_id": "start_station_id",
-                    #"start_station_name":"start_station_name",
-                    "start_station_lon": "start_station_longitude",
-                    "start_station_lat":"start_station_latitude",
-                    "end_station_id": "end_station_id",
-                    #"end_station_name":"end_station_name",
-                    "end_station_lon": "end_station_longitude",
-                    "end_station_lat":"end_station_latitude"
-                    },
-                    {
-                    "start_time": "start_time",
-                    "end_time": "stop_Time",
-                    "start_station_id": "start_station_id",
-                    #"start_station_name":"start_station_name",
-                    "start_station_lon": "start_station_longitude",
-                    "start_station_lat":"start_station_latitude",
-                    "end_station_id": "end_station_id",
-                    #"end_station_name":"end_station_name",
-                    "end_station_lon": "end_station_longitude",
-                    "end_station_lat":"end_station_latitude"
-                    }                   
-                ]
-        },
-        "station_file": {
-                 "keyword": "none"
-                 }  
-}
-
-bikeshare=json.dumps([citibike])
 #s.environ['PYSPARK_SUBMIT_ARGS']='--jars /home/amber/spark/jars/aws-java-sdk-1.11.30.jar,/home/amber/spark/jars/hadoop-aws-2.7.7.jar,/home/amber/spark/jars/jets3t-0.9.4.jar pyspark-shell'i
 #os.environ['PYSPARK_SUBMIT_ARGS']='--jars spark/jars/aws-java-sdk-1.11.30.jar,spark/jars/hadoop-aws-2.7.7.jar,spark/jars/jets3t-0.9.4.jar pyspark-shell'
 #os.environ['PYTHONHASHSEED']='0'
@@ -147,31 +109,41 @@ def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 		df=station_df
 	else:
 		df=station_df.append(station_from_trip_df)
-	df['lon']=df['lon'].astype(float).round(8)
-	df['lat']=df['lat'].astype(float).round(8)
+	df=df[(df[['lon', 'lat']]!="\\N").all(axis=1)].drop_duplicates()	
 	uid=station_pre_row
 	df['uid']=uid
 	id_dict, geo_dict=dict(), dict()
+	df=df.sort_values(by=['lon', 'lat', 'id'])
 	for index, row in df.iterrows():
 		if row['id'] not in id_dict and (row['lon'], row['lat']) not in geo_dict:
+			print("not in dict", row['id'])
 			uid+=1
 			id_dict[row['id']]=uid
 			geo_dict[row['lon'], row['lat']]=uid
 		elif row['id'] in id_dict and (row['lon'], row['lat']) not in geo_dict:
-			df['uid'][index]=id_dict[row['id']]
+			print("in id dict", row['id'])
 			geo_dict[row['lon'], row['lat']]=id_dict[row['id']]
 		elif row['id'] not in id_dict and (row['lon'], row['lat']) in geo_dict:
-			df['uid'][index]=geo_dict[row['lon'], row['lat']]
+			print("in geo dict", row['id'])
 			id_dict[row['id']]=geo_dict[row['lon'], row['lat']]
 		else:
+			print("both dict ", row['id'], id_dict[row['id']], geo_dict[row['lon'], row['lat']])
 			id_dict[row['id']]=geo_dict[row['lon'], row['lat']]
 			continue
 	for index, row in df.iterrows():
 		df['uid'][index]=id_dict[row['id']]
-	return spark.createDataFrame(df), max(df['uid'])
+	df=df[['uid', 'id', 'lon', 'lat']]
+	station_schema= StructType([
+	    StructField('uid', StringType(), True),
+	    StructField('id', StringType(), True),
+	    StructField('lon',  StringType(), True),
+	    StructField('lat', StringType(), True)
+	])
+	df_spark=spark.createDataFrame(df, schema=station_schema)
+	return df_spark, max(df['uid'])
 
 def station_from_trip_table(file, sub, df):
-	if file['start_station_lon'] not in sub.columns:
+	if file['start_station_lon'] =="":
 		return df
 	sub=sub[[file['start_station_id'], file['start_station_lon'], file['start_station_lat']]]\
 			.rename(columns={
@@ -186,7 +158,10 @@ def station_from_trip_table(file, sub, df):
 				file['end_station_lat']: 'lat'
 				})
 			)
-	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()
+	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()	
+	if sub['id'].dtype==float:
+		sub['id'].astype(int)
+	sub=sub.astype(str)			
 	if df is None:
 		df=sub
 	else:
@@ -200,12 +175,10 @@ def union_station_table(file, sub, df):
 				file['lon']: 'lon',
 				file['lat']: 'lat'
 				})
-	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()		
-	sub=sub.select(
-		func.col(file['id']).alias('id'),
-		func.round(func.col(file['lon']).cast(DoubleType()), 8).alias('lon'),
-		func.round(func.col(file['lat']).cast(DoubleType()), 8).alias('lat')
-		).toPandas().filter(func.col('lon')!=0).filter(func.col('lat')!=0 )
+	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()	
+	if sub['id'].dtype==float:
+		sub['id'].astype(int)
+	sub=sub.astype(str)
 	if df is None:
 		df=sub
 	else:
@@ -225,86 +198,202 @@ def clean_trip_table(file, sub, df):
 		df=df.union(sub)
 	return df
 
-def	get_trip_with_station_uid(file, station_df, trip_df):
+def	get_trip_with_station_uid(company, file, station_df, trip_df):
 	df=station_df.select('id', 'uid').distinct()
 	trip_df=trip_df.join(func.broadcast(df.select(func.col('id').alias('start_station_id'), func.col("uid").alias('start_uid'))), on=['start_station_id'])\
 					.join(func.broadcast(df.select(func.col('id').alias('end_station_id'), func.col("uid").alias('end_uid'))), on=['end_station_id'])\
 					.drop('start_station_id', 'end_station_id')\
-					.select(func.col('start_uid').alias('start_station_id'), func.col('end_uid').alias('end_station_id'), 'start_time', 'end_time')
-	w = Window.partitionBy('uid').orderBy("uid")
-	station_df=station_df.groupby('uid').avg('lon', 'lat')\
+					.select(func.col('start_uid').alias('start_station_id'), func.col('end_uid').alias('end_station_id'), 'start_time', 'end_time').dropna()
+	station_df=station_df.select(func.col('uid').cast(IntegerType()), 'id', 
+							func.round(func.col('lon').cast(DoubleType()), 8).alias('lon'),
+							func.round(func.col('lat').cast(DoubleType()), 8).alias('lat'))\
+					.groupby('uid').avg('lon', 'lat')\
 						.withColumnRenamed('avg(lon)', 'lon').withColumnRenamed('avg(lat)', 'lat')\
-						.withColumn('city', func.lit(file['city']))\
-						.withColumn('company', func.lit(file['company']))						
-	return station_df, trip_df
+						.withColumn('company', func.lit(company)).orderBy('uid')
+	trip_df=trip_df.cache()											
+	return station_df, trip_df  ##.withColumn('city', func.lit(file['city']))\
 
-def get_station_bike_usage(station_df, trip_df):
-	w=Window.partitionBy('station_id').orderBy('time')
+def get_station_bike_usage(trip_df):
 	station_bike_usage_df= trip_df.select(func.col('start_station_id').alias('station_id'), func.col('start_time').alias('time'), func.lit(1).alias('action'))\
 				.union(trip_df.select(func.col('end_station_id').alias('station_id'), func.col('end_time').alias('time'), func.lit(-1).alias('action')))
-	window = Window.partitionBy("station_id").orderBy("time")  
-	station_bike_usage_df=station_bike_usage_df.select('station_id', 'time', 'action', func.sum('action').over(window).alias('rent'))
+	station_bike_usage_df=station_bike_usage_df.cache()
+	w=Window.partitionBy('station_id', func.to_date('time')).orderBy('time')
+	station_bike_usage_df=station_bike_usage_df.groupby('station_id', 'time').agg(func.sum("action").alias("action"))
+	station_bike_usage_df=station_bike_usage_df.select('station_id', 'time', 'action', func.sum('action').over(w).alias('rent'))
+	w=Window.partitionBy('station_id').orderBy('time')
 	station_bike_usage_df=station_bike_usage_df\
-				.withColumn('pre_time', func.lag(station_bike_usage_df.time).over(window))
+				.withColumn('next_time', func.lead(station_bike_usage_df.time).over(w))
 	station_bike_usage_df=station_bike_usage_df\
-				.withColumn("dur", func.when(func.isnull(station_bike_usage_df.time.cast('bigint') - station_bike_usage_df.pre_time.cast('bigint')), 0)\
-				.otherwise((station_bike_usage_df.time.cast('bigint') - station_bike_usage_df.pre_time.cast('bigint'))/60).cast('bigint'))\
-				.drop('pre_time')
-	return station_bike_usage_df
+				.withColumn("dur", func.when(func.isnull(station_bike_usage_df.next_time.cast('bigint') - station_bike_usage_df.time.cast('bigint')), 0)\
+				.otherwise((station_bike_usage_df.next_time.cast('bigint') - station_bike_usage_df.time.cast('bigint'))/60).cast('bigint'))#.drop('next_time')	
+	station_bike_usage_agg=station_bike_usage_df.select('station_id', 'rent', 'dur',
+										func.date_format('time', 'u').alias('dow'), 
+										#func.month('time').alias('month'),  
+										func.year('time').alias('year')).groupby('station_id','rent', 'dow', 'month', 'year')\
+										.agg(func.count("rent").alias('count'), func.sum("dur").alias('dur')).orderBy('station_id','year', #'month', 
+											'dow',  'count', 'rent', 'dur')
+	station_bike_usage_agg=station_bike_usage_agg.cache()
+	return station_bike_usage_df, station_bike_usage_agg
 
+
+def check_column_name(name, columns,):
+	column="None"
+	while column not in columns and column != "":
+		column=input("Enter column name " + name+ " :")
+	return column
+
+def create_trip_schema(columns):
+	print(columns)
+	start_time=check_column_name('start time', columns)
+	end_time=check_column_name('end time', columns)
+	start_id=check_column_name('start station id', columns) 
+	start_lon=check_column_name('start station longitude', columns) 
+	start_lat=check_column_name('start station latitude', columns) 
+	end_id=check_column_name('end station id', columns) 
+	end_lon=check_column_name('end station longitude', columns) 
+	end_lat=check_column_name('end station latitude', columns) 
+	trip_schema={
+		"columns": str(columns),
+		"start_time": start_time,
+    	"end_time": end_time,
+    	"start_station_id": start_id,
+    	"start_station_lon": start_lon,
+    	"start_station_lat":start_lat,
+    	"end_station_id": end_id,
+    	"end_station_lon": end_lon,
+   		 "end_station_lat": end_lat    			
+   		}
+	return trip_schema
+
+def create_station_schema(columns):
+	print(columns)
+	station_id=check_column_name('station id', columns)
+	lon=check_column_name('station longitude', columns)
+	lat=check_column_name('station latitude', columns)
+	if lon=="" or lat=="":
+		return None
+	station_schema={
+		"columns": str(columns),
+		"id": station_id,
+        "lon": lon,
+        "lat":lat 
+	}
+	return station_schema
+
+def update_schema(fname, columns, schema):
+	if schema['trip_file']['keyword'].lower() in fname.lower():
+		version=schema['trip_file']['version']
+		for v in version: #if len(columns.difference(v['columns']))==0:	
+			if str(columns)==v['columns']:
+				return "trip", v, schema
+		sub=create_trip_schema(columns)
+		schema['trip_file']['version'].append(sub)
+		return "trip", sub, schema
+	elif schema['station_file']['keyword'].lower() in fname.lower():
+		version=schema['station_file']['version']
+		for v in version: #if len(columns.difference(v['columns']))==0:
+			if str(columns)==v['columns']:
+				return "station", v, schema
+		sub=create_station_schema(columns)
+		if sub is not None:
+			schema['station_file']['version'].append(sub)
+			return "station", sub, schema		
+	return None, None, schema
+
+def initial_schema(company):
+	c = input("Enter company name if not " + company+" :")
+	if c !="":
+		company = c
+	print(fnames)
+	trip_key=input("Enter keyword of trip file name:")
+	station_key=input("Enter keyword of station file name:")	
+	schema={
+	"company": company,
+	"trip_file":{
+		"keyword": trip_key,
+		"version":[]},
+    "station_file": {
+        "keyword": station_key,
+            "version":[]
+        }  
+	}
+	return schema 
+
+def pandas_to_spark(trip_df, station_df):
+	station_schema= StructType([
+	    StructField('uid', StringType(), True),
+	    StructField('id', StringType(), True),
+	    StructField('lon',  StringType(), True),
+	    StructField('lat', StringType(), True)
+	])
+	station_df=spark.createDataFrame(station_df, schema=station_schema)
+	trip_schema= StructType([
+	    StructField('start_time', StringType(), True),
+	    StructField('end_time', StringType(), True),
+	    StructField('start_station_id',  StringType(), True),
+	    StructField('end_station_id', StringType(), True)
+	])	
+	trip_df=spark.createDataFrame(trip_df, schema=trip_schema)
+	return trip_df, station_df
+#company_schema=cpmpany_schema1
 station_max_row=get_value_from_psql("max (uid)", "station").toPandas()['max'][0]
-trip_max_row=0
-data = json.loads(bikeshare)
-for file in data:	
-	s3_url="s3://"+s3_bucket+"/"+file['company']+"/"
-	s3_dwd="s3a://"+s3_bucket+"/"+file['company']+"/"
+url="s3://"+s3_bucket+"/"
+query="aws s3 ls "+ url+  " | awk '{print $2}' "
+companies=os.popen(query).readlines()	
+company_schema = []
+for company in companies[2:3]:
+	company=company.replace("/\n","")
+	s3_url="s3://"+s3_bucket+"/"+company+"/"
+	s3_dwd="s3a://"+s3_bucket+"/"+company+"/"
 	query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
 	fnames=os.popen(query).readlines()	
 	count = 0
-	station_from_trip_df = None #	station_df = None
-	trip_df = None	
-	for f in fnames:
+	station_df, station_from_trip_df, trip_df=None, None, None
+	pre_columns, sub_schema = None, None
+	schema=initial_schema(company)	
+	for f in fnames[93: ]:
 		if '.zip' in f:
 			continue
-		if "csv" not in f and "txt" not in f:
+		if "csv" not in f:
 			continue	
 		count+=1
 		f=f.replace("\n", "")
 		url=s3_dwd+f.replace("\n", "")
 		sub = spark.read.load(url, format='csv', header='true')
 		sub = reduce(lambda sub, idx: sub.withColumnRenamed(sub.columns[idx], 
-															sub.columns[idx].replace(" ", "_")),
-															range(len(sub.columns)), sub)
+															sub.columns[idx].replace(" ", "_").lower()),
+															range(len(sub.columns)), sub)		
 		csv=pd.read_csv(s3_url+f)
 		csv.columns = map(str.lower, csv.columns)
-		csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")
-		print("count: {}\nfile: {}\ncolumn:{} \n".format(count, f, sub))
-		if (file['trip_file']['keyword'].lower() in f.lower()):
-			for s in file['trip_file']['version']:
-				if s['start_station_id'] in sub.columns:
-					break 
-			station_from_trip_df=station_from_trip_table(s, csv, station_from_trip_df)#trip_df=clean_trip_table(s, sub, trip_df)
+		csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")		
+		if pre_columns is None or len(csv.columns.difference(pre_columns))!=0:
+			key, sub_schema, schema=update_schema(f, csv.columns, schema)
+			pre_columns=csv.columns 
+		print("count: {}\nfile: {}\n\n".format(count, f, sub))
+		if key=='trip':
+			station_from_trip_df=station_from_trip_table(sub_schema, csv, station_from_trip_df)
+			trip_df=clean_trip_table(sub_schema, sub, trip_df)
 			continue			
-		if file['station_file']['keyword'].lower() in f.lower():
-			for s in file['station_file']['version']:
-				if s['id'] in csv.columns:
-					break
-			print(s)
-			station_df=union_station_table(s, csv, station_df)
+		if key=='station':
+			station_df=union_station_table(sub_schema, csv, station_df)
 	print("station_df:{}, station_from_trip_df:{}".format(station_df, station_from_trip_df))
+	#station_df, trip_df= pandas_to_spark(station_df, trip_df)
 	station_df, station_max_row=get_unique_station_table(station_df, station_from_trip_df, station_max_row)
-	trip_df=trip_df.cache()
-	station_df, trip_df=get_trip_with_station_uid(file, station_df, trip_df)
-	station_bike_usage_df=get_station_bike_usage(station_df, trip_df)
-	station_bike_usage_df=station_bike_usage_df.cache()
+	station_df, trip_df=get_trip_with_station_uid(company,sub_schema, station_df, trip_df)
+	station_bike_usage_df, station_bike_usage_agg=get_station_bike_usage(trip_df)
 	write_to_psql(station_df, 'station', 'append')
-	write_to_psql(trip_df, 'trip', 'append')
-	write_to_psql(station_bike_usage_df, 'station_bike_usage', 'append')
+	write_to_psql(station_bike_usage_agg, 'usage_agg', 'append')
 	spark.catalog.clearCache()
 	station_df=None
 	station_from_trip=None
 	trip_df=None
 	station_bike_usage_df=None
-
-
+	company_schema.append(schema)
 sc.stop()
+
+
+
+company_schema=json.dumps(company_schema)
+data = json.loads(company_schema)
+write_to_psql(trip_df, 'trip', 'append')
+write_to_psql(station_bike_usage_df, 'station_bike_usage', 'append')
