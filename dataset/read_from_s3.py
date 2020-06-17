@@ -158,9 +158,10 @@ def station_from_trip_table(file, sub, df):
 				file['end_station_lat']: 'lat'
 				})
 			)
+	print(sub.head(1))
 	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()	
 	if sub['id'].dtype==float:
-		sub['id'].astype(int)
+		sub['id']=sub['id'].astype(int)
 	sub=sub.astype(str)			
 	if df is None:
 		df=sub
@@ -177,7 +178,7 @@ def union_station_table(file, sub, df):
 				})
 	sub=sub[(sub[['lon', 'lat']]!=0).all(axis=1)].drop_duplicates().dropna()	
 	if sub['id'].dtype==float:
-		sub['id'].astype(int)
+		sub['id']=sub['id'].astype(int)
 	sub=sub.astype(str)
 	if df is None:
 		df=sub
@@ -228,10 +229,11 @@ def get_station_bike_usage(trip_df):
 				.otherwise((station_bike_usage_df.next_time.cast('bigint') - station_bike_usage_df.time.cast('bigint'))/60).cast('bigint'))#.drop('next_time')	
 	station_bike_usage_agg=station_bike_usage_df.select('station_id', 'rent', 'dur',
 										func.date_format('time', 'u').alias('dow'), 
-										#func.month('time').alias('month'),  
+										func.month('time').alias('month'),  
 										func.year('time').alias('year')).groupby('station_id','rent', 'dow', 'month', 'year')\
-										.agg(func.count("rent").alias('count'), func.sum("dur").alias('dur')).orderBy('station_id','year', #'month', 
-											'dow',  'count', 'rent', 'dur')
+										.agg(func.count("rent").alias('count'), func.sum("dur").alias('dur')).orderBy('station_id','year', 'month', 
+											'dow', 'rent','count',  'dur').select(func.col('station_id').cast(IntegerType()),
+											 'year', 'month', func.col('dow').cast(IntegerType()), 'rent','count',  'dur' )
 	station_bike_usage_agg=station_bike_usage_agg.cache()
 	return station_bike_usage_df, station_bike_usage_agg
 
@@ -335,13 +337,13 @@ def pandas_to_spark(trip_df, station_df):
 	])	
 	trip_df=spark.createDataFrame(trip_df, schema=trip_schema)
 	return trip_df, station_df
-#company_schema=cpmpany_schema1
+
 station_max_row=get_value_from_psql("max (uid)", "station").toPandas()['max'][0]
 url="s3://"+s3_bucket+"/"
 query="aws s3 ls "+ url+  " | awk '{print $2}' "
 companies=os.popen(query).readlines()	
 company_schema = []
-for company in companies[2:3]:
+for company in companies[3:4]:
 	company=company.replace("/\n","")
 	s3_url="s3://"+s3_bucket+"/"+company+"/"
 	s3_dwd="s3a://"+s3_bucket+"/"+company+"/"
@@ -351,7 +353,7 @@ for company in companies[2:3]:
 	station_df, station_from_trip_df, trip_df=None, None, None
 	pre_columns, sub_schema = None, None
 	schema=initial_schema(company)	
-	for f in fnames[93: ]:
+	for f in fnames:
 		if '.zip' in f:
 			continue
 		if "csv" not in f:
