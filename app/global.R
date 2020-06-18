@@ -27,20 +27,17 @@ library(tidyr)
 library(rhandsontable)
 library(RColorBrewer)
 
+dw <- config::get("insight_fellow")
 #Connect to DB
-server = "ec2-54-212-125-37.us-west-2.compute.amazonaws.com"
-uname = 'de_club_2020'
-net = "bikeshare"
-pwd = '#Yj17131'
-drv <- dbDriver("PostgreSQL")
+
 con <-
   dbConnect(
-    drv,
-    dbname = net,
-    host = server,
-    port = 5432,
-    user = uname,
-    password = pwd
+    drv= dbDriver(dw$driver),
+    dbname = dw$database,
+    host = dw$server,
+    port = dw$port,
+    user = dw$uid,
+    password = dw$pwd
   )
 
 
