@@ -1,5 +1,4 @@
 library("RPostgreSQL")
-library(openair)
 library(odbc)
 library(plyr)
 library (dplyr)
@@ -39,12 +38,12 @@ con <-
     user = dw$uid,
     password = dw$pwd
   )
-station<-dbGetQuery(con, "select * from station_backup" )
-query<-paste('select distinct a.company, b.year, b.rent, sum(b.count) as count, sum(b.dur) as dur from station_backup a, usage_agg_backup b\
+station<-dbGetQuery(con, "select * from station" )
+query<-paste('select distinct a.company, b.year, b.rent, sum(b.count) as count, sum(b.dur) as dur from station a, usage_agg b\
                where b.station_id=a.uid group by a.company,  b.year, b.rent order by a.company,  b.year, b.rent' , sep=" ")
 company_usage<-dbGetQuery(con, query)
 query<-paste('select distinct station_id, rent, sum(count) as count, sum(dur) as dur \
-              from usage_agg_backup \
+              from usage_agg \
               group by station_id,  rent order by station_id, rent' , sep=" ")
 station_usage<-dbGetQuery(con, query)
 dbDisconnect(con)
