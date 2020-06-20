@@ -1,4 +1,8 @@
 #!/usr/bin/python3
+import configparser
+from pyspark import SparkContext
+from pyspark.sql import SparkSession
+
 def aws_credential(bucket_name):
 	config = configparser.ConfigParser()
 	aws_profile='default'
