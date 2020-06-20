@@ -56,7 +56,7 @@ def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 		df['uid'][index]=id_dict[row['id']]
 	df=df[['uid', 'id', 'lon', 'lat']]
 	station_schema= StructType([
-	    StructField('uid', StringType(), True),
+	    StructField('uid', IntegerType(), True),
 	    StructField('id', StringType(), True),
 	    StructField('lon',  StringType(), True),
 	    StructField('lat', StringType(), True)
@@ -114,7 +114,7 @@ def clean_trip_table(file, sub, df):
 			func.to_timestamp(func.col(file['end_time'])).alias('end_time'), #
 			func.col(file['start_station_id']).alias('start_station_id'),
 			func.col(file['end_station_id']).alias('end_station_id')
-			).repartition('start_station_id')
+			)
 	if df is None:
 		df=sub
 	else:
@@ -127,24 +127,30 @@ def	get_trip_with_station_uid(company, file, station_df, trip_df):
 					.join(func.broadcast(df.select(func.col('id').alias('end_station_id'), func.col("uid").alias('end_uid'))), on=['end_station_id'])\
 					.drop('start_station_id', 'end_station_id')\
 					.select(func.col('start_uid').alias('start_station_id'), func.col('end_uid').alias('end_station_id'), 'start_time', 'end_time').dropna()
-	station_df=station_df.select(func.col('uid').cast(IntegerType()), 'id', 
+	station_df=station_df.select('uid', 'id', 
 							func.round(func.col('lon').cast(DoubleType()), 8).alias('lon'),
 							func.round(func.col('lat').cast(DoubleType()), 8).alias('lat'))\
 					.groupby('uid').avg('lon', 'lat')\
 						.withColumnRenamed('avg(lon)', 'lon').withColumnRenamed('avg(lat)', 'lat')\
 						.withColumn('company', func.lit(company)).orderBy('uid')
-	trip_df=trip_df.cache()											
-	return station_df, trip_df  ##.withColumn('city', func.lit(file['city']))\
+	trip_df=trip_df.cache()									
+	trip_start=trip_df.select('start_station_id','end_station_id',
+						func.date_format('end_time', 'u').cast(IntegerType()).alias('dow'), func.year('start_time').alias('year'))\
+					.groupby('start_station_id','end_station_id','dow', 'year')\
+										.agg(func.count("dow").alias('count'))	
+	trip_end=trip_df.select('start_station_id','end_station_id', 
+						func.date_format('end_time', 'u').cast(IntegerType()).alias('dow'), func.year('end_time').alias('year'))\
+					.groupby('start_station_id','end_station_id','dow', 'year')\
+										.agg(func.count("dow").alias('count'))											
+	return station_df, trip_df, trip_start, trip_end  ##.withColumn('city', func.lit(file['city']))\
 
-def get_station_bike_usage(station_count, trip_df):
+def get_station_bike_usage(trip_df):
 	station_bike_usage_df= trip_df.select(func.col('start_station_id').alias('station_id'), func.col('start_time').alias('time'), func.lit(1).alias('action'))\
-				.union(trip_df.select(func.col('end_station_id').alias('station_id'), func.col('end_time').alias('time'), func.lit(-1).alias('action')))\
-				.repartition("station_id")
-	station_bike_usage_df=station_bike_usage_df.cache()
-	w=Window.partitionBy('station_id').orderBy('time')		
-	station_bike_usage_df=station_bike_usage_df.withColumn('station_id', ).groupby('station_id', 'time').agg(func.sum("action").alias("action"))
+				.union(trip_df.select(func.col('end_station_id').alias('station_id'), func.col('end_time').alias('time'), func.lit(-1).alias('action'))).cache()
+	station_bike_usage_df=station_bike_usage_df.groupby('station_id', 'time').agg(func.sum("action").alias("action"))
 	w=Window.partitionBy('station_id', func.to_date('time')).orderBy('time')	
-	station_bike_usage_df=station_bike_usage_df.select('station_id', 'time', 'action', func.sum('action').over(w).alias('rent'))
+	station_bike_usage_df=station_bike_usage_df.select('station_id', 'time', 'action', func.sum('action').over(w).alias('rent'))	
+	w=Window.partitionBy('station_id').orderBy('time')		
 	station_bike_usage_df=station_bike_usage_df\
 				.withColumn('next_time', func.lead(station_bike_usage_df.time).over(w))
 	station_bike_usage_df=station_bike_usage_df\
@@ -160,25 +166,5 @@ def get_station_bike_usage(station_count, trip_df):
 	station_bike_usage_agg=station_bike_usage_agg.cache()
 	return station_bike_usage_df, station_bike_usage_agg
 
-
-
-
-
-	return station_bike_usage_df, station_bike_usage_agg
-					#" order by station_id, dateformat(time, 'y'), dateformat(time, 'm'), dayofweek(time), rent"")
-
-	station_bike_usage_df=station_bike_usage_df.groupby('station_id', 'time').agg(func.sum("action").alias("action"))
-	w=Window.partitionBy('station_id', func.to_date('time')).orderBy('time')	
-	w=Window.partitionBy('station_id').orderBy('time')
-	
-	station_bike_usage_agg=station_bike_usage_df.select('station_id', 'rent', 'dur',
-										func.date_format('time', 'u').alias('dow'), 
-										func.month('time').alias('month'),  
-										func.year('time').alias('year')).groupby('station_id','rent', 'dow', 'month', 'year')\
-										.agg(func.count("rent").alias('count'), func.sum("dur").alias('dur')).orderBy('station_id','year', 'month', 
-											'dow', 'rent','count',  'dur').select(func.col('station_id').cast(IntegerType()),
-											 'year', 'month', func.col('dow').cast(IntegerType()), 'rent','count',  'dur' )
-	station_bike_usage_agg=station_bike_usage_agg.cache()
-	return station_bike_usage_df, station_bike_usage_agg
 
 
