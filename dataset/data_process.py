@@ -22,6 +22,7 @@ import pyspark.sql.functions as func
 from spark_func import *
 from schema_func import * #initial_schema, update_schema, create_station_schema, create_trip_schema, check_column_name 
 from data_process_func import * #write_to_psql, get_value_from_psql, get_unique_station_table, station_from_trip_table, union_station_table, clean_trip_table, get_trip_with_station_uid, get_station_bike_usage
+from psql_func.py import * 
 
 s3_bucket='de-club-2020'
 def process ():
@@ -76,5 +77,6 @@ def process ():
 		station_bike_usage_df, station_bike_usage_agg=get_station_bike_usage(trip_df)
 		spark.catalog.clearCache()
 
+		
 if __name__ == '__main__':
     process()
