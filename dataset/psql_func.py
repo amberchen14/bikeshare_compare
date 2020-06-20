@@ -1,3 +1,4 @@
+import os
 def write_to_psql(df, table_name, action):
 	df.write \
     .format("jdbc") \
