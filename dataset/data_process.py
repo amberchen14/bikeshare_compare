@@ -52,6 +52,7 @@ def process ():
 			f=f.replace("\n", "")
 			url=s3_dwd+f.replace("\n", "")
 			spark=create_spark_session(s3_bucket)
+			print('spark setup')
 			sub = spark.read.load(url, format='csv', header='true')
 			sub = reduce(lambda sub, idx: sub.withColumnRenamed(sub.columns[idx], 
 																sub.columns[idx].replace(" ", "_").lower()),
@@ -74,3 +75,6 @@ def process ():
 		station_df, trip_df, trip_start, trip_end=get_trip_with_station_uid(company,sub_schema, station_df, trip_df)
 		station_bike_usage_df, station_bike_usage_agg=get_station_bike_usage(trip_df)
 		spark.catalog.clearCache()
+
+if __name__ == '__main__':
+    process()
