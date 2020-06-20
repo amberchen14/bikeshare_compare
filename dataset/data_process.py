@@ -26,12 +26,11 @@ from psql_func import *
 
 s3_bucket='de-club-2020'
 def process ():
-	spark=create_spark_session(s3_bucket)		
-	print('spark setup')		
+	spark=create_spark_session(s3_bucket)				
 	url="s3://"+s3_bucket+"/"
 	query="aws s3 ls "+ url+  " | awk '{print $2}' "
 	companies=os.popen(query).readlines()	
-	for company in companies[3:]:
+	for company in companies:
 		company=company.replace("/\n","")
 		if 'lyft' in company:
 			continue
@@ -39,7 +38,8 @@ def process ():
 		s3_dwd="s3a://"+s3_bucket+"/"+company+"/"
 		query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
 		fnames=os.popen(query).readlines()				
-		station_max_row=get_value_from_psql(spark, "max (uid)", "station").toPandas()['max'][0]	
+		station_max_row=get_value_from_psql(spark, "max (uid)", "station").toPandas()['max'][0]
+		print('station max row {}'.format(station_max_row))	
 		if station_max_row is None:
 			station_max_row = 0	
 		count = 0
