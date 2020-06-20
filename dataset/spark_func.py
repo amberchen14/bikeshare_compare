@@ -2,6 +2,7 @@
 import configparser
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
+import os
 
 def aws_credential(bucket_name):
 	config = configparser.ConfigParser()
