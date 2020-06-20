@@ -9,7 +9,7 @@ def write_to_psql(df, table_name, action):
     .option("password",os.environ['PSQL_PWD'])\
     .save()
 
-def get_value_from_psql(value, table_name):
+def get_value_from_psql(spark, value, table_name):
 	query = "select "+ value + " from " + table_name
 	out= spark.read \
 	.format("jdbc") \

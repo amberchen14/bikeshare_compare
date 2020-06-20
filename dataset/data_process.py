@@ -26,6 +26,8 @@ from psql_func import *
 
 s3_bucket='de-club-2020'
 def process ():
+	spark=create_spark_session(s3_bucket)		
+	print('spark setup')		
 	url="s3://"+s3_bucket+"/"
 	query="aws s3 ls "+ url+  " | awk '{print $2}' "
 	companies=os.popen(query).readlines()	
@@ -36,8 +38,8 @@ def process ():
 		s3_url="s3://"+s3_bucket+"/"+company+"/"
 		s3_dwd="s3a://"+s3_bucket+"/"+company+"/"
 		query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
-		fnames=os.popen(query).readlines()	
-		station_max_row=get_value_from_psql("max (uid)", "station").toPandas()['max'][0]	
+		fnames=os.popen(query).readlines()				
+		station_max_row=get_value_from_psql(spark, "max (uid)", "station").toPandas()['max'][0]	
 		if station_max_row is None:
 			station_max_row = 0	
 		count = 0
@@ -52,8 +54,6 @@ def process ():
 			count+=1
 			f=f.replace("\n", "")
 			url=s3_dwd+f.replace("\n", "")
-			spark=create_spark_session(s3_bucket)
-			print('spark setup')
 			sub = spark.read.load(url, format='csv', header='true')
 			sub = reduce(lambda sub, idx: sub.withColumnRenamed(sub.columns[idx], 
 																sub.columns[idx].replace(" ", "_").lower()),
