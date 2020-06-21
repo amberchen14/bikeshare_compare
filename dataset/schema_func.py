@@ -1,3 +1,23 @@
+def initial_schema(company, fnames):
+	c = input("Enter company name if not " + company+" :")
+	print("Company name = {}".format(c))
+	if c !="":
+		company = c
+	print(fnames)
+	trip_key=input("Enter keyword of trip file name:")
+	station_key=input("Enter keyword of station file name:")	
+	schema={
+	"company": company,
+	"trip_file":{
+		"keyword": trip_key,
+		"version":[]},
+	"station_file": {
+		"keyword": station_key,
+		"version":[]
+		}  
+	}
+	return schema 
+
 def check_column_name(name, csv):
 	column="None"
 	columns=csv.columns
@@ -27,14 +47,14 @@ def create_trip_schema(csv):
 	trip_schema={
 		"columns": str(columns),
 		"start_time": start_time,
-    	"end_time": end_time,
-    	"start_station_id": start_id,
-    	"start_station_lon": start_lon,
-    	"start_station_lat":start_lat,
-    	"end_station_id": end_id,
-    	"end_station_lon": end_lon,
-   		 "end_station_lat": end_lat    			
-   		}
+		"end_time": end_time,
+		"start_station_id": start_id,
+		"start_station_lon": start_lon,
+		"start_station_lat":start_lat,
+		"end_station_id": end_id,
+		"end_station_lon": end_lon,
+		"end_station_lat": end_lat    			
+	}
 	return trip_schema
 
 def create_station_schema(csv):
@@ -48,8 +68,8 @@ def create_station_schema(csv):
 	station_schema={
 		"columns": str(columns),
 		"id": station_id,
-        "lon": lon,
-        "lat":lat 
+		"lon": lon,
+		"lat":lat 
 	}
 	return station_schema
 
@@ -74,21 +94,3 @@ def update_schema(csv, fname, schema):
 			return "station", sub, schema		
 	return None, None, schema
 
-def initial_schema(company):
-	c = input("Enter company name if not " + company+" :")
-	if c !="":
-		company = c
-	print(fnames)
-	trip_key=input("Enter keyword of trip file name:")
-	station_key=input("Enter keyword of station file name:")	
-	schema={
-	"company": company,
-	"trip_file":{
-		"keyword": trip_key,
-		"version":[]},
-    "station_file": {
-        "keyword": station_key,
-            "version":[]
-        }  
-	}
-	return schema 
