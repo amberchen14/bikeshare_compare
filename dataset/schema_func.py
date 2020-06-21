@@ -1,5 +1,6 @@
 from io import StringIO
 import boto3
+import json
 
 def read_company_from_s3(bucket_name):
 	url="s3://"+bucket_name+"/raw/"
