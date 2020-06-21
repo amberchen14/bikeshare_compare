@@ -67,9 +67,9 @@ def process ():
 		station_df, station_max_row=get_unique_station_table(station_df, station_from_trip_df, station_max_row)
 		station_df, trip_df, trip_start=get_trip_with_station_uid(company,sub_schema, station_df, trip_df)
 		station_bike_usage_df, station_bike_usage_agg=get_station_bike_usage(trip_df)
-		write_to_psql(station_df, 'station', 'append')
-		write_to_psql(trip_start, 'trip_start', 'append')
-		write_to_psql(station_bike_usage_agg, 'usage_agg', 'append')
+		#write_to_psql(station_df, 'station', 'append')
+		#write_to_psql(trip_start, 'trip_start', 'append')
+		#write_to_psql(station_bike_usage_agg, 'usage_agg', 'append')
 		spark.catalog.clearCache()
 
 
