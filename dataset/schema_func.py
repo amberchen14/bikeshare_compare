@@ -5,7 +5,9 @@ def initial_schema(company, fnames):
 		company = c
 	print(fnames)
 	trip_key=input("Enter keyword of trip file name:")
-	station_key=input("Enter keyword of station file name:")	
+	station_key=input("Enter keyword of station file name:")
+	if station_key=="":
+		station_key="None"	
 	schema={
 	"company": company,
 	"trip_file":{
@@ -94,3 +96,21 @@ def update_schema(csv, fname, schema):
 			return "station", sub, schema		
 	return None, None, schema
 
+def search_matched_schema(columns, schema):
+	for sub in schema:
+		if sub['columns']==columns:
+			return sub
+
+def write_schema_to_s3(bucket_name, schema):
+	s3 = boto3.resource('s3')
+	s3object = s3.Object(bucket_name, 'company_schema.json')
+	s3object.put(
+		Body=(bytes(schema.encode('UTF-8')))
+	)
+
+def read_schema_from_s3(bucket_name, schema_name):
+	s3 = boto3.resource('s3')
+	content_object = s3.Object(bucket_name, schema_name)
+	file_content = content_object.get()['Body'].read().decode('utf-8')
+	json_content = json.loads(file_content)
+	return json_content
