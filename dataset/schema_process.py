@@ -9,11 +9,10 @@ Created on Wed Jun  3 20:39:15 2020
 import os, sys, time, boto3, requests, json, glob, shutil, zipfile, configparser
 import urllib.request
 import pandas as pd
-from schema_func import * #initial_schema, update_schema, create_station_schema, create_trip_schema, check_column_name 
-#from spark_func import aws_credential
-
+from schema_func import * 
 
 s3_bucket='de-club-2020'
+
 def read_company_from_s3(bucket_name):
 	url="s3://"+bucket_name+"/"
 	query="aws s3 ls "+ url+  " | awk '{print $2}' "
@@ -42,14 +41,13 @@ def process ():
 			continue
 		fnames=read_file_from_s3(s3_bucket, company)			
 		pre_columns, sub_schema = None, None
-		schema=initial_schema(company)	
+		schema=initial_schema(company, fnames)	
 		for f in fnames:
 			if '.zip' in f:
 				continue
 			if "csv" not in f:
 				continue	
 			f=f.replace("\n", "")
-			url=s3_dwd+f.replace("\n", "")	
 			csv=pd.read_csv(s3_url+f)
 			csv.columns = map(str.lower, csv.columns)
 			csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")		
