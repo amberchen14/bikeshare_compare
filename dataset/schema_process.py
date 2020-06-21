@@ -12,6 +12,7 @@ import pandas as pd
 from schema_func import * 
 
 s3_bucket='de-club-2020'
+schema_name='company_schema.json'
 
 def read_company_from_s3(bucket_name):
 	url="s3://"+bucket_name+"/"
@@ -19,28 +20,21 @@ def read_company_from_s3(bucket_name):
 	companies=os.popen(query).readlines()	
 	return companies
 
-def read_file_from_s3(bucket_name, company):
-	s3_url="s3://"+bucket_name+"/"+company+"/"
-	query="aws s3 ls "+ s3_url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
+def read_fname_from_s3(bucket_name, company):
+	url="s3://"+bucket_name+"/"+company+"/"
+	query="aws s3 ls "+ url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
 	fnames=os.popen(query).readlines()	
-	return fnames
-
-def write_schema_to_s3(bucket_name, schema):
-	s3 = boto3.resource('s3')
-	s3object = s3.Object(bucket_name, 'company_schema.json')
-	s3object.put(
-		Body=(bytes(schema.encode('UTF-8')))
-	)
+	return url, fnames
 
 def process ():	
 	company_schemas=[]
 	companies=read_company_from_s3(s3_bucket)
 	for company in companies:
 		company=company.replace("/\n","")
-		if 'lyft' in company:
-			continue
-		fnames=read_file_from_s3(s3_bucket, company)			
+		if 'lyft' in company or schema_name in company:
+			continue		
 		pre_columns, sub_schema = None, None
+		url, fnames=read_fname_from_s3(s3_bucket, company)			
 		schema=initial_schema(company, fnames)	
 		for f in fnames:
 			if '.zip' in f:
@@ -48,13 +42,18 @@ def process ():
 			if "csv" not in f:
 				continue	
 			f=f.replace("\n", "")
-			csv=pd.read_csv(s3_url+f)
+			print("file name: {}".format(f))
+			csv=pd.read_csv(url+f)
 			csv.columns = map(str.lower, csv.columns)
 			csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")		
 			if pre_columns is None or len(csv.columns.difference(pre_columns))!=0:
-				key, sub_schema, schema=update_schema(csv, f,schema)
+				key, sub_schema, schema=update_schema(csv, f, schema)
 				pre_columns=csv.columns 
-		company_schemas=company_schemas.append(schema)
+		try:
+			company_schemas.append(schema) 
+		except:
+			company_schemas=[schema]
+	company_schema=json.dumps(company_schema)
 	write_schema_to_s3(s3_bucket, company_schemas)
 
 if __name__ == '__main__':
