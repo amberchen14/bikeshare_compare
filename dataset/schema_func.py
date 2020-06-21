@@ -1,5 +1,6 @@
-def initial_schema(company):
+def initial_schema(company, fnames):
 	c = input("Enter company name if not " + company+" :")
+	print("Company name = {}".format(c))
 	if c !="":
 		company = c
 	print(fnames)
