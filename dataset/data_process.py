@@ -60,7 +60,7 @@ def process ():
 					station_from_trip_df=station_from_trip_table(sub_schema, csv, station_from_trip_df)
 					trip_df=clean_trip_table(sub_schema, sub, trip_df)
 			elif station_key in f:
-				sub_schema=search_matched_schema(columns, schema['station_file'])
+				sub_schema=search_matched_schema(str(csv.columns), schema['station_file'])
 				if sub_schema!= None:
 					station_df=union_station_table(sub_schema, csv, station_df)
 		print("station_df:{}, station_from_trip_df:{}".format(station_df, station_from_trip_df))
