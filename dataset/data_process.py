@@ -22,21 +22,9 @@ from spark_func import *
 from schema_func import * #initial_schema, update_schema, create_station_schema, create_trip_schema, check_column_name 
 from data_process_func import * #write_to_psql, get_value_from_psql, get_unique_station_table, station_from_trip_table, union_station_table, clean_trip_table, get_trip_with_station_uid, get_station_bike_usage
 from psql_func import * 
-
 s3_bucket='de-club-2020'
 schema_name='company_schema.json'
 
-def read_company_from_s3(bucket_name):
-	url="s3://"+bucket_name+"/"
-	query="aws s3 ls "+ url+  " | awk '{print $2}' "
-	companies=os.popen(query).readlines()	
-	return companies
-
-def read_fname_from_s3(bucket_name, company):
-	url="s3://"+bucket_name+"/"+company+"/"
-	query="aws s3 ls "+ url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
-	fnames=os.popen(query).readlines()	
-	return url, fnames
 
 def process ():
 	spark=create_spark_session(s3_bucket)		
@@ -58,7 +46,7 @@ def process ():
 				continue	
 			count+=1
 			f=f.replace("\n", "")
-			dwd_url="s3a://"+s3_bucket+"/"+company+"/"+	f.replace("\n", "")	
+			dwd_url="s3a://"+s3_bucket+"/raw/"+company+"/"+	f.replace("\n", "")	
 			sub = spark.read.load(dwd_url, format='csv', header='true')
 			sub = reduce(lambda sub, idx: sub.withColumnRenamed(sub.columns[idx], 
 																sub.columns[idx].replace(" ", "_").lower()),
@@ -68,15 +56,20 @@ def process ():
 			csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")
 			if trip_key in f:
 				sub_schema=search_matched_schema(str(csv.columns), schema['trip_file'])
-				station_from_trip_df=station_from_trip_table(sub_schema, csv, station_from_trip_df)
-				trip_df=clean_trip_table(sub_schema, sub, trip_df)
+				if sub_schema != None:
+					station_from_trip_df=station_from_trip_table(sub_schema, csv, station_from_trip_df)
+					trip_df=clean_trip_table(sub_schema, sub, trip_df)
 			elif station_key in f:
-				sub_schema=search_matched_schema(str(csv.columns), schema['station_file'])
-				station_df=union_station_table(sub_schema, csv, station_df)
+				sub_schema=search_matched_schema(columns, schema['station_file'])
+				if sub_schema!= None:
+					station_df=union_station_table(sub_schema, csv, station_df)
 		print("station_df:{}, station_from_trip_df:{}".format(station_df, station_from_trip_df))
 		station_df, station_max_row=get_unique_station_table(station_df, station_from_trip_df, station_max_row)
-		station_df, trip_df, trip_start, trip_end=get_trip_with_station_uid(company,sub_schema, station_df, trip_df)
+		station_df, trip_df, trip_start=get_trip_with_station_uid(company,sub_schema, station_df, trip_df)
 		station_bike_usage_df, station_bike_usage_agg=get_station_bike_usage(trip_df)
+		write_to_psql(station_df, 'station', 'append')
+		write_to_psql(trip_start, 'trip_start', 'append')
+		write_to_psql(station_bike_usage_agg, 'usage_agg', 'append')
 		spark.catalog.clearCache()
 
 

@@ -1,3 +1,17 @@
+from io import StringIO
+
+def read_company_from_s3(bucket_name):
+	url="s3://"+bucket_name+"/raw/"
+	query="aws s3 ls "+ url+  " | awk '{print $2}' "
+	companies=os.popen(query).readlines()	
+	return companies
+
+def read_fname_from_s3(bucket_name, company):
+	url="s3://"+bucket_name+"/raw/"+company+"/"
+	query="aws s3 ls "+ url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
+	fnames=os.popen(query).readlines()	
+	return url, fnames
+
 def initial_schema(company, fnames):
 	c = input("Enter company name if not " + company+" :")
 	print("Company name = {}".format(c))
@@ -97,9 +111,37 @@ def update_schema(csv, fname, schema):
 	return None, None, schema
 
 def search_matched_schema(columns, schema):
-	for sub in schema:
+	for sub in schema['version']:
 		if sub['columns']==columns:
+			print(sub)
 			return sub
+
+def normalize_schema(key, csv, schema):
+	if key =='trip':
+		if schema['start_station_lon']=="":	
+			csv=csv.rename(columns={schema['start_time']: 'start_time',
+								schema['end_time']:'end_time',
+								schema['start_station_id']: 'start_station_id',
+								schema['end_station_id']:'end_station_id'})
+			csv=csv[['start_time', 'end_time', 'start_station_id', 'end_station_id']]
+		else:
+			csv=csv.rename(columns={schema['start_time']: 'start_time',
+								schema['end_time']:'end_time',
+								schema['start_station_id']: 'start_station_id',
+								schema['end_station_id']:'end_station_id',
+								schema['start_station_lon']: 'start_station_lon',
+								schema['start_station_lat']:'start_station_lat',
+								schema['end_station_lon']: 'end_station_lon',
+								schema['end_station_lat']:'end_station_lat'})
+			csv=csv[['start_time', 'end_time', 'start_station_id','start_station_lon','start_station_lat', 
+												'end_station_id', 'end_station_lon', 'end_station_lat']]
+	else:
+		csv=csv.rename(columns={schema['id']: 'id',
+								schema['lon']:'lon',
+								schema['lat']: 'lat'
+								})
+		csv=csv[['id', 'lon', 'lat']]
+	return csv
 
 def write_schema_to_s3(bucket_name, schema):
 	s3 = boto3.resource('s3')

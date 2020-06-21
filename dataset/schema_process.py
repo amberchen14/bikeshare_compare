@@ -14,25 +14,12 @@ from schema_func import *
 s3_bucket='de-club-2020'
 schema_name='company_schema.json'
 
-def read_company_from_s3(bucket_name):
-	url="s3://"+bucket_name+"/"
-	query="aws s3 ls "+ url+  " | awk '{print $2}' "
-	companies=os.popen(query).readlines()	
-	return companies
-
-def read_fname_from_s3(bucket_name, company):
-	url="s3://"+bucket_name+"/"+company+"/"
-	query="aws s3 ls "+ url+  "  | awk '{$1=$2=$3=\"\"; print $0}' | sed 's/^[ \t]*//'"
-	fnames=os.popen(query).readlines()	
-	return url, fnames
 
 def process ():	
 	company_schemas=[]
 	companies=read_company_from_s3(s3_bucket)
-	for company in companies:
-		company=company.replace("/\n","")
-		if 'lyft' in company or schema_name in company:
-			continue		
+	for company in companies[5:6]:
+		company=company.replace("/\n","")	
 		pre_columns, sub_schema = None, None
 		url, fnames=read_fname_from_s3(s3_bucket, company)			
 		schema=initial_schema(company, fnames)	
@@ -43,7 +30,7 @@ def process ():
 				continue	
 			f=f.replace("\n", "")
 			print("file name: {}".format(f))
-			csv=pd.read_csv(url+f)
+			csv=pd.read_csv(url+f, nrows=2)
 			csv.columns = map(str.lower, csv.columns)
 			csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")		
 			if pre_columns is None or len(csv.columns.difference(pre_columns))!=0:
@@ -53,7 +40,7 @@ def process ():
 			company_schemas.append(schema) 
 		except:
 			company_schemas=[schema]
-	company_schema=json.dumps(company_schema)
+	company_schemas=json.dumps(company_schemas)
 	write_schema_to_s3(s3_bucket, company_schemas)
 
 if __name__ == '__main__':
