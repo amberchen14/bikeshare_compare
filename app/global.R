@@ -137,16 +137,6 @@ station_year_usage<-aggregate(list(dur=station_usage$dur),
                                      rent=station_usage$rent),
                              FUN=sum)
 station_year_usage<-base::merge(station_year_usage, station, by.x='station_id', by.y='uid', all.x=TRUE)
-station_year_max_usage<-data.frame()
-for (i in 1:length(company_name)){
-  df<-filter(station_year_usage, station_year_usage$company==company_name[i])
-  years<-unique(df$year)
-  for (y in 1: length(years)){
-    dff<-filter(df, df$year==years[y])
-    station_year_max_usage<-rbind(station_year_max_usage, station_usage_max_freq(dff))
-  }
-}
-
 
   
 #Download properly sized icon (leaflet's built-in icon is not customizable)

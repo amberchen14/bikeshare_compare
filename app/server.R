@@ -37,7 +37,13 @@ observeEvent(input$company_select,{
   )
   output$station_dur_avg<-renderLeaflet({map_dur_avg})
   #Show station usage by year
-  sub_year1<-filter(station_year_max_usage,  station_year_max_usage$company==input$company_select ) 
+  station_year_max_usage<-data.frame()
+  df<-filter(station_year_usage, station_year_usage$company==input$company_select)
+  years<-unique(df$year)
+  for (y in 1: length(years)){
+    dff<-filter(df, df$year==years[y])
+    station_year_max_usage<-rbind(station_year_max_usage, station_usage_max_freq(dff))
+  }  
   map_dur_year<-map_dur_year%>%setView(
     lat = mean(sub_avg$lat),
     lng= mean(sub_avg$lon),
@@ -46,24 +52,18 @@ observeEvent(input$company_select,{
     
   #Revise year rage 
   updateSliderInput(session, 'company_year',
-                    min=min(unique(filter( station_year_max_usage,
-                                           station_year_max_usage$company==input$company_select
-                    )$year)),
-                    max=max(unique(filter( station_year_max_usage,
-                                           station_year_max_usage$company==input$company_select
-                    )$year)),
-                    value=max(unique(filter( station_year_max_usage,
-                                             station_year_max_usage$company==input$company_select
-                    )$year))
+                    min=min(unique(station_year_max_usage$year)),
+                    max=max(unique(station_year_max_usage$year)),
+                    value=max(unique(station_year_max_usage$year))
   )  
   observeEvent(input$company_year, {
-    pal_max <- colorNumeric(palette="Spectral", domain = sub_year1$rent) 
-    sub_year2<-filter(sub_year1,   sub_year1$year==input$company_year)    
+    pal_max <- colorNumeric(palette="Spectral", domain = station_year_max_usage$rent) 
+    sub_year<-filter(station_year_max_usage,   station_year_max_usage$year==input$company_year)    
     map_dur_year<-map_dur_year%>%
       clearMarkers()%>%
       clearControls()%>%
       addCircleMarkers(
-        data=sub_year2,
+        data=sub_year,
         lat=~lat,
         lng=~lon,
         #radius=3,
@@ -71,7 +71,7 @@ observeEvent(input$company_select,{
         color=~pal_max(rent),
         label=~paste(rent)
     )%>%addLegend("bottomright", pal = pal_max, 
-                     values = sub_year2$rent,
+                     values = sub_year$rent,
                      title = "Rent(+)/Return(-)",
                      #  labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)),
                      opacity = 1

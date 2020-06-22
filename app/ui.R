@@ -28,15 +28,9 @@ navbarPage("Hot Bikeshare",
           h5('Across year'),          
           sliderInput("company_year", 
                       "Year range", 
-                      min=min(unique(filter(station_year_max_usage,
-                                            station_year_max_usage$company==company_name[1]
-                                     )$year)),
-                      max=max(unique(filter(station_year_max_usage,
-                                            station_year_max_usage$company==company_name[1]
-                      )$year)),
-                      value=max(unique(filter(station_year_max_usage,
-                                             station_year_max_usage$company==company_name[1]
-                      )$year)),
+                      min=min(unique(station_year_usage$year)),
+                      max=max(unique(station_year_usage$year)),
+                      value=max(unique(station_year_usage$year)),
                       step = 1,
                       animate=TRUE),
                       leafletOutput("station_dur_year", width="70%", height="65%")                        
