@@ -44,12 +44,19 @@ observeEvent(input$company_select,{
     dff<-filter(df, df$year==years[y])
     station_year_max_usage<-rbind(station_year_max_usage, station_usage_max_freq(dff))
   }  
-  map_dur_year<-map_dur_year%>%setView(
+  pal_max <- colorNumeric(palette="Spectral", domain = station_year_max_usage$rent) 
+  map_dur_year<-map_dur_year %>%setView(
     lat = mean(sub_avg$lat),
     lng= mean(sub_avg$lon),
     zoom = 11
-  )%>%clearMarkers()%>%clearControls()
-    
+  )%>%clearMarkers()%>%clearControls()%>%
+    addLegend("bottomright", pal = pal_max, 
+              values = station_year_max_usage$rent,
+              title = "Rent(+)/Return(-)",
+              #  labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)),
+               opacity = 1
+  )    
+  output$station_dur_year<-renderLeaflet({map_dur_year})
   #Revise year rag
   updateSliderInput(session, 'company_year',
                     min=min(unique(station_year_max_usage$year)),
@@ -57,11 +64,9 @@ observeEvent(input$company_select,{
                     value=max(unique(station_year_max_usage$year))
   )  
   observeEvent(input$company_year, {
-    pal_max <- colorNumeric(palette="Spectral", domain = station_year_max_usage$rent) 
     sub_year<-filter(station_year_max_usage,   station_year_max_usage$year==input$company_year)    
-    map_dur_year<-map_dur_year%>%
+    leafletProxy('station_dur_year') %>%
       clearMarkers()%>%
-      clearControls()%>%
       addCircleMarkers(
         data=sub_year,
         lat=~lat,
@@ -70,13 +75,8 @@ observeEvent(input$company_select,{
         radius=~(abs(rent)+3),
         color=~pal_max(rent),
         label=~paste(rent)
-    )%>%addLegend("bottomright", pal = pal_max, 
-                     values = sub_year$rent,
-                     title = "Rent(+)/Return(-)",
-                     #  labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)),
-                     opacity = 1
-    )    
-    output$station_dur_year<-renderLeaflet({map_dur_year}) 
+    )
+
 
   })
   
