@@ -50,7 +50,7 @@ observeEvent(input$company_select,{
     zoom = 11
   )%>%clearMarkers()%>%clearControls()
     
-  #Revise year rage 
+  #Revise year rag
   updateSliderInput(session, 'company_year',
                     min=min(unique(station_year_max_usage$year)),
                     max=max(unique(station_year_max_usage$year)),
