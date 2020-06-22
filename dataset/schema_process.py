@@ -18,7 +18,7 @@ schema_name='company_schema.json'
 def process ():	
 	company_schemas=[]
 	companies=read_company_from_s3(s3_bucket)
-	for company in companies[5:6]:
+	for company in companies:
 		company=company.replace("/\n","")	
 		pre_columns, sub_schema = None, None
 		url, fnames=read_fname_from_s3(s3_bucket, company)			

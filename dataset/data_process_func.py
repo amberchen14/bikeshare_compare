@@ -117,7 +117,7 @@ def	get_trip_with_station_uid(company, file, station_df, trip_df):
 						func.date_format('end_time', 'u').cast(IntegerType()).alias('dow'), func.year('start_time').alias('year'))\
 					.groupby('start_station_id','end_station_id','dow', 'year')\
 										.agg(func.count("dow").alias('count'))											
-	return station_df, trip_df, trip_start, trip_end  ##.withColumn('city', func.lit(file['city']))\
+	return station_df, trip_df, trip_start  ##.withColumn('city', func.lit(file['city']))\
 
 def get_station_bike_usage(trip_df):
 	station_bike_usage_df= trip_df.select(func.col('start_station_id').alias('station_id'), func.col('start_time').alias('time'), func.lit(1).alias('action'))\

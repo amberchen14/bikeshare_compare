@@ -54,12 +54,12 @@ def process ():
 			csv=pd.read_csv(dwd_url, header=0)
 			csv.columns = map(str.lower, csv.columns)
 			csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")
-			if trip_key in f:
+			if trip_key in f.lower():
 				sub_schema=search_matched_schema(str(csv.columns), schema['trip_file'])
 				if sub_schema != None:
 					station_from_trip_df=station_from_trip_table(sub_schema, csv, station_from_trip_df)
 					trip_df=clean_trip_table(sub_schema, sub, trip_df)
-			elif station_key in f:
+			elif station_key in f.lower():
 				sub_schema=search_matched_schema(str(csv.columns), schema['station_file'])
 				if sub_schema!= None:
 					station_df=union_station_table(sub_schema, csv, station_df)
