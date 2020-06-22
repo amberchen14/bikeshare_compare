@@ -2,7 +2,7 @@
 
 This batch pipeline ingested 7 bikeshare companies' trip and station data and compared their performance using station usages (number of rented bikes) at one company and number of rented/returned at one station.  
 
-[Demo](http://awsdataeng.club/)  and [Slides](https://docs.google.com/presentation/d/1MfF7WYtXP7_rn48hyBeEr0gDZD7moLwPsfvobEbHuNE/edit#slide=id.g809055a8e0_0_149).
+[Web](http://awsdataeng.club/), [Demo](https://youtu.be/0ZssHHJbqY0),  and [Slides](https://docs.google.com/presentation/d/1MfF7WYtXP7_rn48hyBeEr0gDZD7moLwPsfvobEbHuNE/edit#slide=id.g809055a8e0_0_149).
 
 [![video](/pic/web.png)](https://youtu.be/0ZssHHJbqY0)
 
