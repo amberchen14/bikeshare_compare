@@ -5,6 +5,7 @@ Created on Wed Jun  3 20:39:15 2020
 
 @author: amberchen
 """
+import sys
 import os, sys, time, boto3, requests, json, glob, shutil, zipfile, configparser
 import s3fs
 from bs4 import BeautifulSoup
@@ -19,9 +20,14 @@ from pyspark.sql.utils import AnalysisException
 from pyspark.sql.window import Window
 import pyspark.sql.functions as func
 from spark_func import *
-from schema_func import * #initial_schema, update_schema, create_station_schema, create_trip_schema, check_column_name 
-from data_process_func import * #write_to_psql, get_value_from_psql, get_unique_station_table, station_from_trip_table, union_station_table, clean_trip_table, get_trip_with_station_uid, get_station_bike_usage
+from data_process_func import * 
 from psql_func import * 
+#Import functions from preprocess folder
+PREPROCESS=os.environ['PREPROCESS']
+sys.path.insert(1, PREPROCESS)
+from schema_func import * 
+
+
 s3_bucket='de-club-2020'
 schema_name='company_schema.json'
 
