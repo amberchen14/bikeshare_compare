@@ -4,6 +4,7 @@ This batch pipeline ingested 7 bikeshare companies' trip and station data and co
 
 [Demo](http://awsdataeng.club/)  and [Slides](https://docs.google.com/presentation/d/1MfF7WYtXP7_rn48hyBeEr0gDZD7moLwPsfvobEbHuNE/edit#slide=id.g809055a8e0_0_149).
 
+[![video](/pic/web.png)](https://youtu.be/0ZssHHJbqY0)
 
 ## Problem statement
 Bikeshare becomes well-known in the US. Location of bikeshare stations is one of the important factors that affecting bikeshare performance. To have a deeper understanding about which locations attract more usages, this project combined the separated data sets collected from multiple sources to analyze this business model.
