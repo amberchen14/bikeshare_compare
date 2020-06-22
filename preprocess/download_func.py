@@ -12,18 +12,6 @@ from bs4 import BeautifulSoup
 import urllib.request
 import zipfile
 
-tmpfolder='tmp/'
-dataset=os.getenv("HOME")+'/datasets/'
-gbfs={'citibike':'https://s3.amazonaws.com/tripdata/',
-        'capital':'https://s3.amazonaws.com/capitalbikeshare-data/',
-        'lyft': 'https://s3.amazonaws.com/baywheels-data/',
-        'niceride':'https://s3.amazonaws.com/niceride-data/',
-        'bluebike':'https://s3.amazonaws.com/hubway-data/',
-        'divvy':'https://divvy-tripdata.s3.amazonaws.com/',
-        'cogo':'https://s3.amazonaws.com/cogo-sys-data/'
-            }
-other={'indego':'https://www.rideindego.com/about/data/',
-        'metro':'https://bikeshare.metro.net/about/data/'}
 
 def unzip_file(dwd, file):
     zipname= dwd+tmpfolder+file
@@ -123,10 +111,5 @@ def download():
         create_folder(dwd)
         get_other(url, dwd)
         mv_all(dwd)   
-
-
-    
-
-download()
 
 
