@@ -138,7 +138,7 @@ station_year_usage<-aggregate(list(dur=station_usage$dur),
                              FUN=sum)
 station_year_usage<-merge(station_year_usage, station, by.x='station_id', by.y='uid', all.x=TRUE)
 
-  
+
 #Download properly sized icon (leaflet's built-in icon is not customizable)
 markerIcon <-
   makeIcon(iconUrl = 'http://icons.iconarchive.com/icons/icons-land/vista-map-markers/32/Map-Marker-Marker-Outside-Azure-icon.png',
