@@ -1,4 +1,5 @@
-
+import pyspark.sql.functions as func
+from pyspark.sql.types import *
 def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 	if station_df is None and station_from_trip_df is None:
 		return None, station_pre_row
@@ -114,10 +115,6 @@ def	get_trip_with_station_uid(company, file, station_df, trip_df):
 	trip_df=trip_df.cache()									
 	trip_start=trip_df.select('start_station_id','end_station_id',
 						func.date_format('end_time', 'u').cast(IntegerType()).alias('dow'), func.year('start_time').alias('year'))\
-					.groupby('start_station_id','end_station_id','dow', 'year')\
-										.agg(func.count("dow").alias('count'))	
-	trip_end=trip_df.select('start_station_id','end_station_id', 
-						func.date_format('end_time', 'u').cast(IntegerType()).alias('dow'), func.year('end_time').alias('year'))\
 					.groupby('start_station_id','end_station_id','dow', 'year')\
 										.agg(func.count("dow").alias('count'))											
 	return station_df, trip_df, trip_start, trip_end  ##.withColumn('city', func.lit(file['city']))\
