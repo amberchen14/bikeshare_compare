@@ -45,7 +45,8 @@ observeEvent(input$company_select,{
     station_year_max_usage<-rbind(station_year_max_usage, station_usage_max_freq(dff))
   }  
   pal_max <- colorNumeric(palette="Spectral", domain = station_year_max_usage$rent) 
-  map_dur_year<-map_dur_year %>%setView(
+  map_dur_year<-map_dur_year %>%
+    setView(
     lat = mean(sub_avg$lat),
     lng= mean(sub_avg$lon),
     zoom = 11
