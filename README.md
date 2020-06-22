@@ -10,6 +10,7 @@ Bikeshare becomes well-known in the US. Location of bikeshare stations is one of
 
 ## Design
 
+![pipeline plt](/pic/pipeline.png)
 
 The batch pipeline serves as the Extract-Transform-Load (ETL) pipeline. The raw data is stored in Amazon S3 as a collection of files in the csv format. Using schema normalization and data normalization, we extracted the target columns from these input files and developed normal trip and station table formats. Also, we used Pandas to group station ids whose id formats and geometry positions change across years. Finally, we used Spark to aggregate trip tables and saved in PostgreSQL database.
 
