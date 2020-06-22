@@ -129,14 +129,14 @@ station_avg_usage<-aggregate(list(dur=station_usage$dur),
                              by=list(station_id=station_usage$station_id,
                                      rent=station_usage$rent),
                              FUN=sum)
-station_avg_usage<-base::merge(station_avg_usage, station, by.x='station_id', by.y='uid', all.x=TRUE)
+station_avg_usage<-merge(station_avg_usage, station, by.x='station_id', by.y='uid', all.x=TRUE)
 
 station_year_usage<-aggregate(list(dur=station_usage$dur),
                              by=list(station_id=station_usage$station_id,
                                      year=station_usage$year,
                                      rent=station_usage$rent),
                              FUN=sum)
-station_year_usage<-base::merge(station_year_usage, station, by.x='station_id', by.y='uid', all.x=TRUE)
+station_year_usage<-merge(station_year_usage, station, by.x='station_id', by.y='uid', all.x=TRUE)
 
   
 #Download properly sized icon (leaflet's built-in icon is not customizable)
