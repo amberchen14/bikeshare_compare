@@ -32,7 +32,7 @@ navbarPage("Hot Bikeshare",
                       max=max(unique(station_year_usage$year)),
                       value=max(unique(station_year_usage$year)),
                       step = 1,
-                      animate=animationOptions(interval = 5000, loop = TRUE)),
+                      animate=animationOptions(interval = 2000, loop = TRUE)),
                       leafletOutput("station_dur_year", width="70%", height="65%")                        
                       
                     
