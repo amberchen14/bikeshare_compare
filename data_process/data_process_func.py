@@ -1,5 +1,12 @@
 import pyspark.sql.functions as func
 from pyspark.sql.types import *
+
+def search_matched_schema(columns, schema):
+	for sub in schema['version']:
+		if sub['columns']==columns:
+			print(sub)
+			return sub
+		
 def get_unique_station_table(station_from_trip_df, station_df, station_pre_row):
 	if station_df is None and station_from_trip_df is None:
 		return None, station_pre_row
