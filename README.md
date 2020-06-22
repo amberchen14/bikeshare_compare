@@ -18,6 +18,7 @@ The batch pipeline serves as the Extract-Transform-Load (ETL) pipeline. The raw 
 Spark: 2.4.5-bin-hadoop2.7
 Java: 1.8.0_252 (openjdk-8-hre-headless)
 Python: 3.7.5 
+R: 4.0
 Jars:
   org.postgresql:postgresql: 42.2.13
   com.amazonaws:aws-java-sdk: 1.7.4
