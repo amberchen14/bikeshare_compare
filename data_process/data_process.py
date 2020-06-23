@@ -28,7 +28,7 @@ sys.path.insert(1, PREPROCESS)
 from schema_func import * 
 
 
-s3_bucket='de-club-2020'
+s3_bucket=os.environ['S3_BUCKET_Name']
 schema_name='company_schema.json'
 
 def process ():
