@@ -3,6 +3,8 @@ import boto3
 import json
 import os
 
+s3_bucket=os.environ['S3_BUCKET_Name']
+schema_name='company_schema.json'
 
 def read_company_from_s3(bucket_name):
 	url="s3://"+bucket_name+"/raw/"
