@@ -27,9 +27,8 @@ other={'metro':'https://bikeshare.metro.net/about/data/'}
 s3_bucket='de-club-2020'
 schema_name='company_schema.json'
 
-
-def download():
-    #gbfs structure
+def download_and_upload_s3():
+    #Download trip files follow gbfs structure placed in s3. 
     for fname in gbfs:
         url=gbfs[fname]
         dwd=dataset+fname+'/'
@@ -37,15 +36,21 @@ def download():
         get_gbfs(url, dwd)
         mv_all(dwd)
 
-    #others
+    #Download trip files placed in web (wget...)
     for fname in other:
         url=other[fname]
         dwd=dataset+fname+'/'
         create_folder(dwd)
         get_other(url, dwd)
         mv_all(dwd)   
+    #Upload all files to s3
+   
 
-def schema_normalize ():	
+def schema_normalize ():
+	'''
+	This function reads all files placed in s3 and 
+	let user define schemas when the columns the system read does not face before.
+	'''
 	company_schemas=[]
 	companies=read_company_from_s3(s3_bucket)
 	for company in companies:
@@ -74,5 +79,6 @@ def schema_normalize ():
 	write_schema_to_s3(s3_bucket, company_schemas)
 
 if __name__ == '__main__':
-	download()
-	schema_normalize()
+    download_and_upload_s3()
+    schema_normalize()
+
