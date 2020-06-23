@@ -24,7 +24,6 @@ gbfs={'citibike':'https://s3.amazonaws.com/tripdata/',
             }
 other={'metro':'https://bikeshare.metro.net/about/data/'}
 
-
 s3_bucket='de-club-2020'
 schema_name='company_schema.json'
 
@@ -76,4 +75,4 @@ def schema_normalize ():
 
 if __name__ == '__main__':
 	download()
-    schema_normalize()
+	schema_normalize()
