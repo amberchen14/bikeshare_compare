@@ -1,13 +1,13 @@
 # Hot bikeshare, find you!
 
-This batch pipeline ingested 7 bikeshare companies' trip and station data and compared their performance using station usages (number of rented bikes) at one company and number of rented/returned at one station.  
+This batch pipeline ingested 7 bikeshare companies' trip and station data and compared their performance using number of rented bikes and number of rented/returned from one station.  
 
 [Web](http://awsdataeng.club/), [Demo](https://youtu.be/0ZssHHJbqY0),  and [Slides](https://docs.google.com/presentation/d/1MfF7WYtXP7_rn48hyBeEr0gDZD7moLwPsfvobEbHuNE/edit#slide=id.g809055a8e0_0_149).
 
 [![video](/pic/web.png)](https://youtu.be/0ZssHHJbqY0)
 
 ## Problem statement
-Bikeshare becomes well-known in the US. Location of bikeshare stations is one of the important factors that affecting bikeshare performance. To have a deeper understanding about which locations attract more usages, this project combined the separated data sets collected from multiple sources to analyze this business model.
+In recent years, bike share systems begin to gain popularity in major US cities. Several startup companies are competing to implement the most optimal bike share system. However, there is no consensus on the optimal approach to date. One of the important factors that influence bike share usage is the location of bike share stations. To gain a deeper understanding of how to run bike share business successfully, this project aimed to examine which locations attracted more bike usages by combining mulitple datasets collected from different bike share companies.
 
 ## Design
 
