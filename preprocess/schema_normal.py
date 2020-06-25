@@ -3,6 +3,9 @@ import boto3
 import json
 import os
 
+s3_bucket=os.environ['S3_BUCKET_Name']
+schema_name='company_schema.json'
+
 def read_company_from_s3(bucket_name):
 	url="s3://"+bucket_name+"/raw/"
 	query="aws s3 ls "+ url+  " | awk '{print $2}' "
@@ -113,38 +116,6 @@ def update_schema(csv, fname, schema):
 			return "station", sub, schema		
 	return None, None, schema
 
-def search_matched_schema(columns, schema):
-	for sub in schema['version']:
-		if sub['columns']==columns:
-			print(sub)
-			return sub
-
-def normalize_schema(key, csv, schema):
-	if key =='trip':
-		if schema['start_station_lon']=="":	
-			csv=csv.rename(columns={schema['start_time']: 'start_time',
-								schema['end_time']:'end_time',
-								schema['start_station_id']: 'start_station_id',
-								schema['end_station_id']:'end_station_id'})
-			csv=csv[['start_time', 'end_time', 'start_station_id', 'end_station_id']]
-		else:
-			csv=csv.rename(columns={schema['start_time']: 'start_time',
-								schema['end_time']:'end_time',
-								schema['start_station_id']: 'start_station_id',
-								schema['end_station_id']:'end_station_id',
-								schema['start_station_lon']: 'start_station_lon',
-								schema['start_station_lat']:'start_station_lat',
-								schema['end_station_lon']: 'end_station_lon',
-								schema['end_station_lat']:'end_station_lat'})
-			csv=csv[['start_time', 'end_time', 'start_station_id','start_station_lon','start_station_lat', 
-												'end_station_id', 'end_station_lon', 'end_station_lat']]
-	else:
-		csv=csv.rename(columns={schema['id']: 'id',
-								schema['lon']:'lon',
-								schema['lat']: 'lat'
-								})
-		csv=csv[['id', 'lon', 'lat']]
-	return csv
 
 def write_schema_to_s3(bucket_name, schema):
 	s3 = boto3.resource('s3')
@@ -159,3 +130,39 @@ def read_schema_from_s3(bucket_name, schema_name):
 	file_content = content_object.get()['Body'].read().decode('utf-8')
 	json_content = json.loads(file_content)
 	return json_content
+
+
+def schema_normalize ():
+	'''
+	This function reads all files placed in s3 and 
+	let user define schemas when the columns the system read does not face before.
+	'''
+	company_schemas=[]
+	companies=read_company_from_s3(s3_bucket)
+	for company in companies:
+		company=company.replace("/\n","")	
+		pre_columns, sub_schema = None, None
+		url, fnames=read_fname_from_s3(s3_bucket, company)			
+		schema=initial_schema(company, fnames)	
+		for f in fnames:
+			if '.zip' in f:
+				continue
+			if "csv" not in f:
+				continue	
+			f=f.replace("\n", "")
+			print("file name: {}".format(f))
+			csv=pd.read_csv(url+f, nrows=2)
+			csv.columns = map(str.lower, csv.columns)
+			csv.columns=csv.columns.str.replace("\n", "").str.replace(" ","_")		
+			if pre_columns is None or len(csv.columns.difference(pre_columns))!=0:
+				key, sub_schema, schema=update_schema(csv, f, schema)
+				pre_columns=csv.columns 
+		try:
+			company_schemas.append(schema) 
+		except:
+			company_schemas=[schema]
+	company_schemas=json.dumps(company_schemas)
+	write_schema_to_s3(s3_bucket, company_schemas)
+
+if __name__ == '__main__':
+    schema_normalize()

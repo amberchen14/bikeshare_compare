@@ -106,21 +106,3 @@ def mv_all(dwd):
     for f in files:
         shutil.move(dwd+tmpfolder+f, dwd)
 
-def download():
-    #gbfs structure (usually files place in s3)
-    for fname in gbfs:
-        url=gbfs[fname]
-        dwd=dataset+fname+'/'
-        create_folder(dwd)
-        get_gbfs(url, dwd)
-        mv_all(dwd)
-
-    #others
-    for fname in other:
-        url=other[fname]
-        dwd=dataset+fname+'/'
-        create_folder(dwd)
-        get_other(url, dwd)
-        mv_all(dwd)   
-
-
